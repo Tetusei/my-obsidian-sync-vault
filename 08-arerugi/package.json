@@ -1,0 +1,17 @@
+{
+  "name": "gas-local-dev",
+  "version": "1.0.0",
+  "description": "Local development environment for Google Apps Script using clasp and TypeScript",
+  "scripts": {
+    "login": "clasp login",
+    "create": "clasp create",
+    "clone": "clasp clone",
+    "push": "clasp push",
+    "pull": "clasp pull"
+  },
+  "devDependencies": {
+    "@google/clasp": "^2.5.0",
+    "@types/google-apps-script": "^1.0.83",
+    "typescript": "^5.4.5"
+  }
+}

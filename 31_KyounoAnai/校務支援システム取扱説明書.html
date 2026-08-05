@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>校務支援システム（今日の案内）取扱説明書</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #ffffff;
+    }
+    
+    h1 {
+      font-size: 26px;
+      border-bottom: 3px solid #1a73e8;
+      padding-bottom: 10px;
+      color: #1a73e8;
+    }
+
+    h2 {
+      font-size: 20px;
+      border-bottom: 1px solid #e0e0e0;
+      padding-bottom: 8px;
+      margin-top: 30px;
+      color: #202124;
+    }
+
+    h3 {
+      font-size: 16px;
+      color: #202124;
+      margin-top: 20px;
+    }
+
+    p, li {
+      font-size: 14px;
+      color: #3c4043;
+    }
+
+    /* タイムライン（フローチャート） */
+    .flow-container {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin: 20px 0;
+      padding-left: 20px;
+      position: relative;
+    }
+    .flow-container::before {
+      content: '';
+      position: absolute;
+      left: 27px;
+      top: 10px;
+      bottom: 10px;
+      width: 2px;
+      background-color: #1a73e8;
+    }
+    .flow-step {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      position: relative;
+    }
+    .flow-circle {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background-color: #ffffff;
+      border: 3px solid #1a73e8;
+      z-index: 1;
+    }
+    .flow-content {
+      background-color: #f8f9fa;
+      padding: 10px 15px;
+      border-radius: 6px;
+      border: 1px solid #e0e0e0;
+      font-size: 14px;
+      font-weight: bold;
+      color: #1a73e8;
+      flex-grow: 1;
+      max-width: 450px;
+    }
+
+    /* アラートスタイル */
+    .alert {
+      padding: 15px;
+      margin: 20px 0;
+      border-left: 5px solid;
+      border-radius: 4px;
+    }
+    .alert-note {
+      background-color: #f1f3f9;
+      border-left-color: #1a73e8;
+    }
+    .alert-note::before {
+      content: "💡 補足";
+      font-weight: bold;
+      color: #1a73e8;
+      display: block;
+      margin-bottom: 5px;
+    }
+    .alert-important {
+      background-color: #fce8e6;
+      border-left-color: #d93025;
+    }
+    .alert-important::before {
+      content: "⚠️ 重要";
+      font-weight: bold;
+      color: #d93025;
+      display: block;
+      margin-bottom: 5px;
+    }
+    .alert-tip {
+      background-color: #e6f4ea;
+      border-left-color: #137333;
+    }
+    .alert-tip::before {
+      content: "🌟 テクニック・コツ";
+      font-weight: bold;
+      color: #137333;
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    /* テーブル */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+      font-size: 14px;
+    }
+    th, td {
+      border: 1px solid #e0e0e0;
+      padding: 10px;
+      text-align: left;
+    }
+    th {
+      background-color: #f8f9fa;
+      color: #202124;
+      font-weight: bold;
+    }
+
+    /* 番号リスト */
+    ol {
+      padding-left: 20px;
+    }
+    ol li {
+      margin-bottom: 8px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🏫 校務支援システム（今日の案内）取扱説明書</h1>
+  <p>本システムは、毎日の学校行事・時間割・給食献立・天気・熱中症指数（WBGT）を自動で集計し、毎朝（平日）自動で職員連絡用の Google Chat へ通知するシステムです。<br>パソコンやIT操作が苦手な先生でも、簡単に日常の更新や操作ができるよう説明します。</p>
+
+  <h2>📅 1. 日常のスケジュール（毎朝自動で動くこと）</h2>
+  <p>平日の朝 <strong>7:00〜8:00の間</strong> に、システムが以下の処理を自動で行います。</p>
+
+  <div class="flow-container">
+    <div class="flow-step">
+      <div class="flow-circle"></div>
+      <div class="flow-content">毎朝 7:00〜8:00 に自動起動</div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-circle"></div>
+      <div class="flow-content">日付を「今日」に自動更新</div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-circle"></div>
+      <div class="flow-content">Googleカレンダーから本日の予定と給食を取得</div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-circle"></div>
+      <div class="flow-content">気象庁と環境省から天気・WBGT（暑さ指数）を取得</div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-circle"></div>
+      <div class="flow-content">Gemini AIが朝の挨拶・応援コメントを生成</div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-circle"></div>
+      <div class="flow-content">職員用の Google Chat へ自動送信</div>
+    </div>
+  </div>
+
+  <div class="alert alert-note">
+    <strong>土曜日・日曜日の自動送信はスキップされます。</strong> 週明け月曜日の朝に自動的に再開されます。
+  </div>
+
+  <h2>🖥️ 2. 主な画面（シート）の使い方</h2>
+  <p>スプレッドシートを開くと、主に2つのシートがあります。普段の作業は <strong>「連絡・日課」シート</strong> のみで行います。</p>
+
+  <h3>■「連絡・日課」シート（メイン画面）</h3>
+  <p>毎日の予定を確認・修正する画面です。</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 25%;">セル・ボタン</th>
+        <th style="width: 25%;">機能</th>
+        <th>使い方</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>A2セル（日付）</strong></td>
+        <td>表示する対象日</td>
+        <td>日付をダブルクリックしてカレンダーから日を選択します。変更すると予定や天気が自動で再読み込みされます。</td>
+      </tr>
+      <tr>
+        <td><strong>「今日」ボタン</strong></td>
+        <td>日付を今日に戻す</td>
+        <td>クリックすると、一発で日付を本日の日付に戻します。</td>
+      </tr>
+      <tr>
+        <td><strong>「前日」「翌日」ボタン</strong></td>
+        <td>日付を前後にずらす</td>
+        <td>前後の日の予定を確認したいときにクリックします。</td>
+      </tr>
+      <tr>
+        <td><strong>「行を追加」ボタン</strong></td>
+        <td>予定を手動で追加</td>
+        <td>クリックすると、表の最下部に新しい入力行を追加します。</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>■「基礎データ」シート（初期設定用）</h3>
+  <p>管理者用の設定シートです。<strong>普段の業務で先生方が変更する必要はありません。</strong><br>
+  （APIキーや連携するカレンダーのID、送信先のチャットURLなどが保存されています）</p>
+
+  <h2>🛠️ 3. 予定を手動で修正・今すぐ送信したいとき</h2>
+  <p>「急な時間割の変更があった」「今すぐ最新の予定を Chat に再送信したい」という場合の操作手順です。</p>
+
+  <ol>
+    <li><strong>スプレッドシートを開く</strong><br>「連絡・日課」シートが開いていることを確認します。</li>
+    <li><strong>日付を指定する</strong><br><strong>A2セル</strong>をダブルクリックして、予定を編集・送信したい日付を選択します。</li>
+    <li><strong>予定を修正する</strong>
+      <ul>
+        <li>追加する場合：シート上の<strong>「行を追加」</strong>ボタンを押し、追加された行に「時間（または終日）」と「内容」を入力します。</li>
+        <li>変更する場合：表示されている予定を直接書き換えます。</li>
+      </ul>
+    </li>
+    <li><strong>カレンダーへ登録・削除する（必要に応じて）</strong>
+      <ul>
+        <li>新しく手入力した予定をカレンダー側にも保存したい場合は、左端のチェックボックスを <strong>ON</strong> にし、上部メニューの <code>🏫 校務支援</code> ＞ <code>📅 行事予定管理</code> ＞ <code>2. カレンダーへ登録</code> をクリックします。</li>
+        <li>逆にカレンダーから消したい予定がある場合は、チェックボックスを <strong>ON</strong> にし、シート上の<strong>「カレンダーから削除」</strong>ボタンを押します。</li>
+      </ul>
+    </li>
+    <li><strong>Chatへ今すぐ送信する</strong><br>上部メニューの <strong><code>🏫 校務支援</code> ＞ <code>🤖 日次ボット` ＞ `📤 今の内容でチャット送信</code></strong> をクリックします。スプレッドシート上の内容が即座に Google Chat へ送信されます。</li>
+  </ol>
+
+  <div class="alert alert-important">
+    手動で送信する場合は、日付に関わらずいつでも送信が可能です（土日でも送信できます）。
+  </div>
+
+  <h2>📄 4. 【AI機能】行事予定表や給食献立PDFからの一括取込</h2>
+  <p>毎月配られる「行事予定表」や「給食献立表」のPDFファイルから、AI（Gemini）が日付と内容を読み取り、自動でカレンダーへ登録する機能です。</p>
+
+  <h3>ステップ①：PDFファイルを保存する</h3>
+  <ol>
+    <li>指定された Google ドライブのフォルダ（「基礎データ」シートの B6 セルにリンクがあるフォルダ）を開きます。</li>
+    <li>お手元の <strong>行事予定PDF</strong> または <strong>給食献立PDF</strong> をそのフォルダにアップロードします。</li>
+  </ol>
+
+  <h3>ステップ②：PDFをAIに読み込ませる</h3>
+  <ol>
+    <li>スプレッドシートの上部メニューを開きます。
+      <ul>
+        <li>行事の場合：<code>🏫 校務支援</code> ＞ <code>📅 行事予定管理</code> ＞ <code>1. 行事PDFから取込 (AI)</code></li>
+        <li>給食の場合：<code>🏫 校務支援</code> ＞ <code>🍛 給食献立管理</code> ＞ <code>1. 給食PDFから取込 (AI)</code></li>
+      </ul>
+    </li>
+    <li>画面中央にダイアログが表示されます。</li>
+    <li>セレクトボックスから、アップロードした <strong>PDFファイル名</strong> を選択します。</li>
+    <li><strong>「解析実行」</strong> ボタンを押します。</li>
+    <li>解析には <strong>約30秒</strong> かかります。「完了」と表示されダイアログが自動的に閉じるまでお待ちください。</li>
+  </ol>
+
+  <h3>ステップ③：内容を確認してカレンダーへ登録する</h3>
+  <ol>
+    <li>解析が完了すると、新しく <code>[PDFファイル名]_[行事または給食]</code> という名前のシートが自動で作成されます。</li>
+    <li>シート内にAIが抽出した日付と予定の一覧が表示されますので、間違いがないか確認します。</li>
+    <li>取り込みたい行の左端にある <strong>「Chk（チェック）」列が ON になっていること</strong> を確認します（不要な行はチェックを外します）。</li>
+    <li>上部メニューから以下を実行します。
+      <ul>
+        <li>行事の場合：<code>🏫 校務支援</code> ＞ <code>📅 行事予定管理</code> ＞ <code>2. カレンダーへ登録</code></li>
+        <li>給食の場合：<code>🏫 校務支援</code> ＞ <code>🍛 給食献立管理</code> ＞ <code>2. カレンダーへ登録</code></li>
+      </ul>
+    </li>
+    <li>登録が完了すると、ステータスが「済」に変わります。</li>
+  </ol>
+
+  <div class="alert alert-tip">
+    解析完了後に新しく作られた確認用のシートは、カレンダー登録が完了した後は削除してしまって構いません。
+  </div>
+
+  <h2>☀️ 5. お役立ちお天気・WBGT（暑さ指数）機能</h2>
+  <p>本システムは、気象庁や環境省と直接通信して、熱中症対策のためのデータを自動表示します。</p>
+  <ul>
+    <li><strong>詳細な天気</strong>：「連絡・日課」シートの <strong>D2セル</strong> に、天気マーク、最高/最低気温、降水確率が表示されます。</li>
+    <li><strong>🥵 WBGT（暑さ指数）</strong>：環境省の佐世保観測所データと連動し、その日の最大予測値と時間帯を自動計算します。<br>
+    表示例：<code>(🥵WBGT最大: 29.5 [14時] 厳重警戒)</code><br>
+    Chatの通知にも自動的に添付されるため、子どもたちの外遊び制限や部活動の実施目安としてご活用ください。</li>
+  </ul>
+
+  <h2>❓ 6. 困ったときの Q&A</h2>
+  <h3>Q1. Google Chat にメッセージが届きません。</h3>
+  <p><strong>対策：</strong> 「基礎データ」シートの <strong>B8セル（Bot有効化）</strong> が <code>ON</code> になっているか確認してください。また、上部メニュー <code>🏫 校務支援` ＞ `⚙️ 初期設定` ＞ `▶️ 自動化トリガーをONにする</code> をクリックして再設定を試みてください。</p>
+
+  <h3>Q2. 天気やWBGTの欄が「取得失敗」になります。</h3>
+  <p><strong>対策：</strong> サーバーの一時的な混雑です。時間を置いてから日付の「今日」ボタンなどを押し、再読み込みをしてください。</p>
+
+  <h3>Q3. PDFのAI解析でエラーが出ます。</h3>
+  <p><strong>対策：</strong> PDFのファイルサイズが大きすぎるか、スキャン品質が低く文字が読めない可能性があります。またはAPIキーの月間上限に達している可能性があります。</p>
+
+</body>
+</html>

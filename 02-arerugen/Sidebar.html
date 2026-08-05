@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <style>
+      body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        padding: 10px;
+        background-color: #f8f9fa;
+      }
+      h3 {
+        margin: 0 0 10px 0;
+        color: #3c4043;
+        font-size: 16px;
+        display: flex;
+        align-items: center;
+      }
+      /* ボタン共通スタイル */
+      button {
+        display: block;
+        width: 100%;
+        padding: 12px;
+        margin-bottom: 10px;
+        font-size: 14px;
+        font-weight: bold;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        transition: opacity 0.2s;
+        text-align: center;
+      }
+      button:hover { opacity: 0.9; }
+      button:disabled { background-color: #ccc !important; cursor: not-allowed; }
+
+      /* ボタンの色分け */
+      .btn-blue { background-color: #1a73e8; }   /* 解析系 */
+      .btn-green { background-color: #34a853; }  /* 作成系 */
+      .btn-orange { background-color: #f9ab00; } /* 連携系 */
+
+      /* ログ表示エリア（黒い画面・最新が上） */
+      .log-header {
+        font-size: 12px;
+        font-weight: bold;
+        color: #5f6368;
+        margin-top: 20px;
+        margin-bottom: 5px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      #log-console {
+        background-color: #202124; /* 黒背景 */
+        color: #e8eaed;            /* 白文字 */
+        font-family: 'Consolas', 'Monaco', monospace;
+        font-size: 11px;
+        padding: 10px;
+        height: 200px;             /* 少し広めに */
+        overflow-y: auto;
+        border-radius: 4px;
+        border: 1px solid #5f6368;
+        white-space: pre-wrap;     
+        display: flex;
+        flex-direction: column;    /* Flexboxで制御 */
+      }
+      
+      /* ログの色分け */
+      .log-line { margin-bottom: 4px; border-bottom: 1px solid #3c4043; padding-bottom: 2px; }
+      .log-info { color: #81c995; }  /* 緑：成功・完了 */
+      .log-file { color: #8ab4f8; }  /* 青：ファイル読込中 */
+      .log-error { color: #f28b82; } /* 赤：エラー */
+      .log-warn { color: #fdd663; }  /* 黄：警告 */
+    </style>
+  </head>
+  <body>
+
+    <h3>📊 操作パネル</h3>
+
+    <button class="btn-blue" onclick="run('processKondate')">
+      1. 献立解析
+    </button>
+
+    <button class="btn-blue" onclick="run('processZairyoh')">
+      2. 材料解析
+    </button>
+
+    <button class="btn-blue" onclick="run('processKojin')">
+      3. 個人票一括
+    </button>
+
+    <button class="btn-green" onclick="run('createMonthlyVerifyList')">
+      4. 一覧作成
+    </button>
+
+    <button class="btn-orange" onclick="run('syncVerifyToCalendar')">
+      5. カレンダー同期
+    </button>
+
+    <div class="log-header">
+      <span>📡 実行ログ</span>
+      <span style="font-size:10px; font-weight:normal;">(最新が上)</span>
+    </div>
+    <div id="log-console">待機中...</div>
+
+    <script>
+      let logInterval;
+
+      // ページ読み込み時にログ監視スタート
+      window.onload = function() {
+        startLogPolling();
+      };
+
+      function run(funcName) {
+        const btn = event.target;
+        const btnText = btn.innerText.trim();
+        
+        // 開始メッセージ
+        appendLog("--- 処理開始: " + btnText + " ---");
+        
+        // ボタン無効化
+        disableButtons(true);
+
+        google.script.run
+          .withSuccessHandler(function() {
+            appendLog("✅ 全工程が完了しました");
+            disableButtons(false);
+          })
+          .withFailureHandler(function(e) {
+            appendLog("❌ エラーが発生: " + e.message);
+            disableButtons(false);
+          })
+          [funcName]();
+      }
+
+      function disableButtons(disabled) {
+        const btns = document.querySelectorAll('button');
+        btns.forEach(b => b.disabled = disabled);
+      }
+
+      // --- ログシステム ---
+
+      function startLogPolling() {
+        if (logInterval) clearInterval(logInterval);
+        logInterval = setInterval(function() {
+          google.script.run
+            .withSuccessHandler(updateLogDisplay)
+            .withFailureHandler(function() {})
+            .getLogQueue();
+        }, 1000);
+      }
+
+      function updateLogDisplay(logs) {
+        if (!logs || logs.length === 0) return;
+        
+        const consoleDiv = document.getElementById('log-console');
+        // 初回の「待機中...」をクリア
+        if (consoleDiv.innerText === "待機中...") consoleDiv.innerText = "";
+
+        logs.forEach(function(msg) {
+          let colorClass = "log-line"; // デフォルト
+          
+          // 色分け判定
+          if (msg.indexOf("エラー") !== -1 || msg.indexOf("失敗") !== -1) {
+            colorClass += " log-error";
+          } else if (msg.indexOf("完了") !== -1 || msg.indexOf("成功") !== -1) {
+            colorClass += " log-info";
+          } else if (msg.indexOf("読込中") !== -1 || msg.indexOf("解析") !== -1) {
+            colorClass += " log-file";
+          }
+          
+          const line = document.createElement('div');
+          line.className = colorClass;
+          line.textContent = "> " + msg;
+          
+          // 最新を上に追加 (prepend)
+          consoleDiv.prepend(line);
+        });
+        
+        // スクロールを一番上（最新）に合わせる
+        consoleDiv.scrollTop = 0;
+      }
+
+      // クライアント側から手動でログ追加
+      function appendLog(msg) {
+        updateLogDisplay([msg]);
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    body{font-family:sans-serif;padding:15px;color:#333;background-color:#f8f9fa;}
+    h3{font-size:16px;margin-top:0;color:#1a73e8;}
+    select,button{width:100%;margin-bottom:15px;padding:12px;border-radius:4px;box-sizing:border-box;}
+    select{border:1px solid #ccc;background:#fff;}
+    button{background:#1a73e8;color:#fff;border:none;font-weight:bold;cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,0.1);}
+    button:disabled{background:#ccc;cursor:not-allowed;}
+    #s{font-size:13px;color:#666;white-space:pre-wrap;line-height:1.4;}
+  </style>
+</head>
+<body>
+  <h3 id="title">PDFを選択してください</h3>
+  <select id="f"><option>読込中...</option></select>
+  <button id="b" onclick="run()">解析実行</button>
+  <div id="s"></div>
+
+  <script>
+    // Ui_Menu.gs から渡された解析モード（Event または Menu）を取得
+    // ※scriptタグ内に直接書き込まれる window.mode を参照します
+    
+    // フォルダ内のファイルリストを取得してセレクトボックスに表示
+    google.script.run.withSuccessHandler(l=>{
+      const s=document.getElementById('f');
+      s.innerHTML='';
+      if(l && l.length && l[0].id !== "") {
+        l.forEach(x=>s.add(new Option(x.name,x.id)));
+      } else {
+        s.add(new Option(l[0] ? l[0].name : "PDFなし",""));
+        document.getElementById('b').disabled = true;
+      }
+    }).getClientFileList(); // Ai_Pdf.gs の関数
+
+    function run(){
+      const b=document.getElementById('b');
+      const fileId = document.getElementById('f').value;
+      if(!fileId) return;
+
+      b.disabled=true;
+      b.innerText="AI解析中... (30秒ほど)";
+      
+      // 解析モード(mode)を渡して実行
+      google.script.run.withSuccessHandler(r=>{
+        document.getElementById('s').innerText = r ? r.msg : "解析完了";
+        b.innerText = "完了";
+        // 4秒後に自動でダイアログを閉じる
+        setTimeout(() => google.script.host.close(), 4000);
+      }).processPdf(fileId, window.mode); // Ai_Pdf.gs の関数
+    }
+  </script>
+</body>
+</html>

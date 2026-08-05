@@ -1,0 +1,1967 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>備品台帳 写真撮影フォーム</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+      --card-bg: rgba(30, 41, 59, 0.7);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --text-main: #f8fafc;
+      --text-sub: #94a3b8;
+      --primary: #6366f1;
+      --primary-hover: #4f46e5;
+      --success: #10b981;
+      --success-bg: rgba(16, 185, 129, 0.15);
+      --warning: #f59e0b;
+      --warning-bg: rgba(245, 158, 11, 0.15);
+      --danger: #ef4444;
+      --danger-bg: rgba(239, 68, 68, 0.15);
+      --input-bg: rgba(15, 23, 42, 0.6);
+      --input-border: rgba(255, 255, 255, 0.1);
+      --shadow-lg: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+      --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      font-family: 'Noto Sans JP', 'Inter', sans-serif;
+      background: var(--bg-gradient);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      line-height: 1.5;
+      padding-bottom: 24px;
+    }
+
+    /* アプリヘッダー */
+    header {
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      padding: 16px 20px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      border-bottom: 1px solid var(--card-border);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    }
+
+    .header-title-area {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    h1 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: -0.025em;
+      background: linear-gradient(to right, #818cf8, #c084fc);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .stats {
+      font-size: 0.75rem;
+      background: rgba(99, 102, 241, 0.2);
+      color: #a5b4fc;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      font-weight: 500;
+      border: 1px solid rgba(99, 102, 241, 0.3);
+    }
+
+    /* 更新（再読み込み）ボタン */
+    .refresh-btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--card-border);
+      color: var(--text-main);
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .refresh-btn:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    .refresh-btn.spinning svg {
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* 検索窓・写真フィルター */
+    .search-filter-box {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .search-input-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .search-input {
+      width: 100%;
+      background: var(--input-bg);
+      border: 1px solid var(--input-border);
+      color: var(--text-main);
+      padding: 10px 14px 10px 38px;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      outline: none;
+      transition: var(--transition);
+    }
+
+    .search-input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 12px;
+      width: 18px;
+      height: 18px;
+      fill: none;
+      stroke: var(--text-sub);
+      stroke-width: 2;
+    }
+
+    .clear-btn {
+      position: absolute;
+      right: 12px;
+      background: none;
+      border: none;
+      color: var(--text-sub);
+      cursor: pointer;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .clear-btn svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    /* フィルタータブ (写真ステータス) */
+    .filter-tabs {
+      display: flex;
+      gap: 6px;
+      background: rgba(15, 23, 42, 0.4);
+      padding: 3px;
+      border-radius: 6px;
+      border: 1px solid var(--card-border);
+    }
+
+    .tab-btn {
+      flex: 1;
+      background: none;
+      border: none;
+      color: var(--text-sub);
+      padding: 6px 12px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: var(--transition);
+      text-align: center;
+    }
+
+    .tab-btn.active {
+      background: var(--primary);
+      color: var(--text-main);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    }
+
+    /* メインコンテンツ */
+    main {
+      flex: 1;
+      padding: 16px 20px;
+      max-width: 640px;
+      width: 100%;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* ビュー切り替えコンテナ */
+    .view-container {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* 1. 教科選択ビュー (subjectView) */
+    .subject-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      width: 100%;
+    }
+
+    .subject-card {
+      border-radius: 16px;
+      padding: 16px;
+      color: #ffffff;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 125px;
+      box-shadow: var(--shadow-lg);
+      cursor: pointer;
+      transition: var(--transition);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .subject-card:hover, .subject-card:active {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 20px rgba(0, 0, 0, 0.4);
+      filter: brightness(1.1);
+    }
+
+    .subject-card::after {
+      content: '';
+      position: absolute;
+      right: -10px;
+      bottom: -10px;
+      width: 60px;
+      height: 60px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 50%;
+      pointer-events: none;
+    }
+
+    .subj-name {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      line-height: 1.3;
+      word-break: break-all;
+    }
+
+    .subj-stats {
+      margin-top: auto;
+      width: 100%;
+    }
+
+    .subj-count-text {
+      font-size: 0.75rem;
+      font-weight: 500;
+      opacity: 0.9;
+      margin-bottom: 6px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .subj-progress-bg {
+      width: 100%;
+      height: 5px;
+      background: rgba(255, 255, 255, 0.25);
+      border-radius: 9999px;
+      overflow: hidden;
+    }
+
+    .subj-progress-bar {
+      height: 100%;
+      background: #ffffff;
+      border-radius: 9999px;
+      transition: width 0.3s ease;
+    }
+
+    /* 2. 備品リストビュー (listView) */
+    .list-header-area {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 4px;
+    }
+
+    .back-btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--card-border);
+      color: var(--text-main);
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: var(--transition);
+    }
+
+    .back-btn:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    .current-subj-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    /* 備品リスト */
+    #itemList {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    /* 備品カード */
+    .item-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      box-shadow: var(--shadow-lg);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      transition: var(--transition);
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .item-card::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 4px;
+      background: var(--primary);
+      opacity: 0;
+      transition: var(--transition);
+    }
+
+    .item-card:hover, .item-card:active {
+      transform: translateY(-2px);
+      border-color: rgba(99, 102, 241, 0.4);
+      background: rgba(30, 41, 59, 0.9);
+    }
+
+    .item-card:hover::before, .item-card:active::before {
+      opacity: 1;
+    }
+
+    .item-info {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .item-name {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text-main);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* 詳細項目グリッド */
+    .item-details-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 4px 12px;
+      font-size: 0.8rem;
+      color: var(--text-sub);
+    }
+
+    .grid-item {
+      display: flex;
+      gap: 4px;
+      min-width: 0;
+    }
+
+    .detail-label {
+      color: rgba(255, 255, 255, 0.35);
+      flex-shrink: 0;
+    }
+
+    .detail-val {
+      color: var(--text-main);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* 状態バッジ */
+    .status-badge {
+      font-size: 0.75rem;
+      font-weight: 500;
+      padding: 6px 10px;
+      border-radius: 8px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+
+    .status-badge.has-photo {
+      background: var(--success-bg);
+      color: var(--success);
+      border: 1px solid rgba(16, 185, 129, 0.25);
+    }
+
+    .status-badge.no-photo {
+      background: var(--warning-bg);
+      color: var(--warning);
+      border: 1px solid rgba(245, 158, 11, 0.25);
+    }
+
+    /* もっと見るボタン・フッター通知 */
+    .list-footer-info {
+      text-align: center;
+      color: var(--text-sub);
+      font-size: 0.8rem;
+      padding: 12px;
+    }
+
+    /* ローディング表示・メッセージ表示 */
+    .status-message {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+      text-align: center;
+      gap: 16px;
+    }
+
+    /* ボトムシート / モダール */
+    .overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      z-index: 100;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .bottom-sheet {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: #1e293b;
+      border-top: 1px solid var(--card-border);
+      border-top-left-radius: 20px;
+      border-top-right-radius: 20px;
+      z-index: 101;
+      transform: translateY(100%);
+      transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      max-height: 85vh;
+      overflow-y: auto;
+      box-shadow: 0 -10px 25px -5px rgba(0, 0, 0, 0.4);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .bottom-sheet.active {
+      transform: translateY(0);
+    }
+
+    .sheet-handle {
+      width: 36px;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 9999px;
+      margin: 12px auto 8px auto;
+      flex-shrink: 0;
+    }
+
+    .sheet-header {
+      padding: 0 20px 12px 20px;
+      border-bottom: 1px solid var(--card-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+
+    .sheet-title-area {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .sheet-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--text-main);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .sheet-subtitle {
+      font-size: 0.8rem;
+      color: var(--text-sub);
+      margin-top: 2px;
+    }
+
+    .close-btn {
+      background: rgba(255, 255, 255, 0.06);
+      border: none;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .close-btn:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    /* 撮影・アップロードエリア */
+    .sheet-content {
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .sheet-item-details-box {
+      background: rgba(15, 23, 42, 0.4);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 0.85rem;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .sheet-detail-row {
+      display: flex;
+    }
+
+    .sheet-detail-label {
+      width: 80px;
+      color: var(--text-sub);
+      flex-shrink: 0;
+    }
+
+    .sheet-detail-val {
+      color: var(--text-main);
+      word-break: break-all;
+    }
+
+    /* 画像プレビュー領域 */
+    .preview-container {
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      background: rgba(15, 23, 42, 0.8);
+      border: 2px dashed rgba(255, 255, 255, 0.15);
+      border-radius: 12px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .preview-container:hover {
+      border-color: var(--primary);
+      background: rgba(15, 23, 42, 0.6);
+    }
+
+    .preview-image {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: none;
+    }
+
+    .preview-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      color: var(--text-sub);
+      text-align: center;
+      padding: 20px;
+    }
+
+    .preview-placeholder svg {
+      width: 48px;
+      height: 48px;
+      stroke: var(--text-sub);
+      stroke-width: 1.5;
+      fill: none;
+    }
+
+    .preview-placeholder span {
+      font-size: 0.9rem;
+      font-weight: 500;
+    }
+
+    .preview-placeholder small {
+      font-size: 0.75rem;
+      opacity: 0.7;
+    }
+
+    /* アクションボタン群 */
+    .action-group {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 14px;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: var(--transition);
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: var(--text-main);
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.35);
+    }
+
+    .btn-primary:hover:not(:disabled), .btn-primary:active:not(:disabled) {
+      background: var(--primary-hover);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text-main);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* アップロード進行中 */
+    .upload-progress-box {
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+      text-align: center;
+      padding: 10px 0;
+    }
+
+    .progress-bar-bg {
+      width: 100%;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 9999px;
+      overflow: hidden;
+    }
+
+    .progress-bar-fill {
+      width: 0%;
+      height: 100%;
+      background: linear-gradient(to right, #818cf8, #10b981);
+      border-radius: 9999px;
+      transition: width 0.3s ease;
+    }
+
+    .progress-text {
+      font-size: 0.8rem;
+      color: var(--text-sub);
+    }
+
+    /* 検査済排他ボタン */
+    .inspection-button-group {
+      display: flex;
+      gap: 8px;
+      width: 100%;
+      margin-bottom: 12px;
+      box-sizing: border-box;
+    }
+    .insp-btn {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 11px;
+      border-radius: 10px;
+      font-size: 0.92rem;
+      font-weight: 700;
+      cursor: pointer;
+      border: 2px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.03);
+      color: var(--text-sub);
+      transition: all 0.15s ease;
+      font-family: inherit;
+    }
+    .insp-btn.btn-uninspected.active {
+      background: #ef4444 !important;
+      border-color: #dc2626 !important;
+      color: #ffffff !important;
+      box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+    }
+    .insp-btn.btn-inspected.active {
+      background: #10b981 !important;
+      border-color: #059669 !important;
+      color: #ffffff !important;
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    }
+    .insp-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .insp-btn:active:not(:disabled) {
+      transform: scale(0.97);
+    }
+
+    /* 成功時の既存写真確認リンク */
+    .existing-photo-link {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      color: #818cf8;
+      font-size: 0.85rem;
+      text-decoration: none;
+      background: rgba(129, 140, 248, 0.08);
+      border: 1px solid rgba(129, 140, 248, 0.2);
+      padding: 8px 12px;
+      border-radius: 8px;
+      margin-top: 4px;
+      transition: var(--transition);
+    }
+
+    .existing-photo-link:hover {
+      background: rgba(129, 140, 248, 0.15);
+      color: #a5b4fc;
+    }
+
+    /* アイテムカード内サムネイル */
+    .item-thumb {
+      width: 64px;
+      height: 64px;
+      object-fit: cover;
+      border-radius: 8px;
+      border: 2px solid var(--success);
+      flex-shrink: 0;
+      background: rgba(255,255,255,0.05);
+    }
+    /* ボトムシート内サムネイル */
+    .sheet-thumb {
+      width: 56px;
+      height: 56px;
+      object-fit: cover;
+      border-radius: 8px;
+      border: 2px solid var(--success);
+      flex-shrink: 0;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    /* 検査済バッジ */
+    .badge-inspected {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: rgba(16,185,129,0.15);
+      color: var(--success);
+      border: 1px solid rgba(16,185,129,0.35);
+      border-radius: 9999px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 3px 8px;
+      white-space: nowrap;
+    }
+
+    /* 写真削除ボタン */
+    .delete-photo-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      color: #f87171;
+      font-size: 0.85rem;
+      text-decoration: none;
+      background: rgba(239, 68, 68, 0.08);
+      border: 1px solid rgba(239, 68, 68, 0.2);
+      padding: 8px 12px;
+      border-radius: 8px;
+      margin-top: 6px;
+      cursor: pointer;
+      transition: var(--transition);
+      width: 100%;
+      box-sizing: border-box;
+      font-family: inherit;
+    }
+    .delete-photo-btn:hover {
+      background: rgba(239, 68, 68, 0.15);
+      color: #fca5a5;
+    }
+
+    /* ユーティリティ */
+    .d-none {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- アプリヘッダー -->
+  <header>
+    <div class="header-title-area">
+      <h1 id="appTitle">
+        <svg style="width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2.5;" viewBox="0 0 24 24">
+          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+          <circle cx="12" cy="13" r="4"></circle>
+        </svg>
+        備品台帳 点検・撮影
+      </h1>
+      <div class="header-right">
+        <span class="stats" id="statsCount">読み込み中...</span>
+        <!-- 最新情報に同期する更新ボタン -->
+        <button class="refresh-btn" id="refreshDataBtn" title="最新情報に更新">
+          <svg style="width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.5;" viewBox="0 0 24 24">
+            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+    
+    <!-- 検索とフィルターエリア (リストビュー時に表示される) -->
+    <div class="search-filter-box d-none" id="searchFilterArea">
+      <!-- 検索窓 -->
+      <div class="search-input-wrapper">
+        <svg class="search-icon" viewBox="0 0 24 24">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input type="text" class="search-input" id="searchInput" placeholder="品名、型式、製造番号で検索..." autocomplete="off">
+        <button class="clear-btn" id="clearSearchBtn">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      
+      <!-- 写真あり・なし フィルタータブ -->
+      <div class="filter-tabs">
+        <button class="tab-btn active" data-filter="all">すべて</button>
+        <button class="tab-btn" data-filter="no-photo">写真なし</button>
+        <button class="tab-btn" data-filter="has-photo">写真あり</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- メインコンテンツ -->
+  <main id="mainContainer">
+    <!-- 初期ローディング -->
+    <div class="status-message" id="initialLoading">
+      <div class="spinner"></div>
+      <div>
+        <p style="font-weight: 700; font-size: 1.1rem; margin-bottom: 4px;">備品データをロードしています</p>
+        <p style="color: var(--text-sub); font-size: 0.85rem;">少々お待ちください...</p>
+      </div>
+    </div>
+
+    <!-- 1. 教科・分類 選択ビュー -->
+    <div class="view-container d-none" id="subjectView">
+      <p style="font-size: 0.9rem; color: var(--text-sub); font-weight: 500; margin-bottom: -4px;">教科を選択してください（番号順）：</p>
+      <div class="subject-grid" id="subjectGrid">
+        <!-- B列(番号)＋C列(教科名)で生成されたカードが動的に入ります -->
+      </div>
+    </div>
+
+    <!-- 2. 備品リスト ビュー -->
+    <div class="view-container d-none" id="listView">
+      <div class="list-header-area">
+        <button class="back-btn" id="backToSubjectsBtn">
+          <svg style="width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.5;" viewBox="0 0 24 24">
+            <polyline points="15 18 9 12 15 6"></polyline>
+          </svg>
+          教科選択に戻る
+        </button>
+        <span class="current-subj-title" id="currentSubjectTitle">理科の備品</span>
+      </div>
+
+      <!-- 備品カードのリスト -->
+      <div id="itemList"></div>
+      
+      <!-- 結果が空の場合のメッセージ -->
+      <div class="status-message d-none" id="emptyMessage">
+        <div class="empty-icon">🔍</div>
+        <p style="font-weight: 700; font-size: 1.1rem; margin-bottom: 4px;">該当する備品が見つかりません</p>
+        <p style="color: var(--text-sub); font-size: 0.85rem;">検索条件を変更してお試しください。</p>
+      </div>
+    </div>
+  </main>
+
+  <!-- カメラ入力用の隠しInput要素 -->
+  <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display: none;">
+
+  <!-- ボトムシート 背景マスク -->
+  <div class="overlay" id="overlay"></div>
+
+  <!-- ボトムシート 本体 -->
+  <div class="bottom-sheet" id="bottomSheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <div class="sheet-title-area">
+        <div class="sheet-title" id="sheetItemName">備品名</div>
+        <div class="sheet-subtitle" id="sheetRowInfo">行番号: -</div>
+      </div>
+      <button class="close-btn" id="closeSheetBtn">
+        <svg style="width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.5;" viewBox="0 0 24 24">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+
+    <div class="sheet-content">
+      <!-- A. 撮影・操作ステート (captureState) -->
+      <div id="captureState">
+        <!-- 検査ステータス（排他ボタン） -->
+        <div class="inspection-button-group">
+          <button class="insp-btn btn-uninspected" id="btnInspUninspected" onclick="setInspectionState(false)">
+            <svg style="width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.5;" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="15" y1="9" x2="9" y2="15"></line>
+              <line x1="9" y1="9" x2="15" y2="15"></line>
+            </svg>
+            未点検
+          </button>
+          <button class="insp-btn btn-inspected" id="btnInspInspected" onclick="setInspectionState(true)">
+            <svg style="width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.5;" viewBox="0 0 24 24">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            点検済
+          </button>
+        </div>
+
+        <!-- 備品詳細スペック -->
+        <div style="display:flex;gap:10px;align-items:flex-start;">
+          <div class="sheet-item-details-box" style="flex:1;">
+            <div class="sheet-detail-row">
+              <span class="sheet-detail-label">規格・型式</span>
+              <span class="sheet-detail-val" id="sheetItemSpec">-</span>
+            </div>
+            <div class="sheet-detail-row">
+              <span class="sheet-detail-label">保管場所等</span>
+              <span class="sheet-detail-val" id="sheetItemSerial">-</span>
+            </div>
+            <div class="sheet-detail-row">
+              <span class="sheet-detail-label">購入年月日</span>
+              <span class="sheet-detail-val" id="sheetItemDate">-</span>
+            </div>
+            <div class="sheet-detail-row">
+              <span class="sheet-detail-label">品名番号</span>
+              <span class="sheet-detail-val" id="sheetItemNameNum">-</span>
+            </div>
+            <div class="sheet-detail-row">
+              <span class="sheet-detail-label">番号</span>
+              <span class="sheet-detail-val" id="sheetItemNum">-</span>
+            </div>
+          </div>
+          <!-- 右端サムネイル -->
+          <img id="sheetThumbImg" class="sheet-thumb" style="display:none;" loading="lazy" alt="備品写真" onerror="this.style.display='none'">
+        </div>
+
+        <!-- 既存写真リンク表示 -->
+        <a href="#" target="_blank" class="existing-photo-link d-none" id="sheetExistingPhoto" style="margin-top: 10px;">
+          <svg style="width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2;" viewBox="0 0 24 24">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+            <polyline points="15 3 21 3 21 9"></polyline>
+            <line x1="10" y1="14" x2="21" y2="3"></line>
+          </svg>
+          登録済みの写真を表示する
+        </a>
+
+        <!-- 登録済写真の削除ボタン -->
+        <button class="delete-photo-btn d-none" id="sheetDeletePhotoBtn">
+          <svg style="width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2;" viewBox="0 0 24 24">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            <line x1="10" y1="11" x2="10" y2="17"></line>
+            <line x1="14" y1="11" x2="14" y2="17"></line>
+          </svg>
+          登録済みの写真を削除する
+        </button>
+
+        <!-- プレビューエリア -->
+        <div class="preview-container" id="previewBox" style="margin-top: 12px;">
+          <div class="preview-placeholder" id="previewPlaceholder">
+            <svg viewBox="0 0 24 24">
+              <path d="M21 16V8a2 2 0 0 0-2-2h-3.8l-2-3H10.8l-2 3H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2z"></path>
+              <circle cx="12" cy="13" r="4"></circle>
+            </svg>
+            <span>タップして写真を撮影する</span>
+            <small>カメラの起動、またはアルバムから選択</small>
+          </div>
+          <img class="preview-image" id="previewImage" alt="撮影した写真のプレビュー">
+        </div>
+
+        <!-- プログレスバー -->
+        <div class="upload-progress-box" id="uploadProgressBox" style="margin-top: 12px;">
+          <div class="progress-bar-bg">
+            <div class="progress-bar-fill" id="progressBarFill"></div>
+          </div>
+          <span class="progress-text" id="progressText">画像を準備しています...</span>
+        </div>
+
+        <!-- アクションボタン -->
+        <div class="action-group" style="margin-top: 16px;">
+          <button class="btn btn-primary" id="uploadBtn" disabled>
+            <svg style="width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.5;" viewBox="0 0 24 24">
+              <polyline points="16 16 12 12 8 16"></polyline>
+              <line x1="12" y1="12" x2="12" y2="21"></line>
+              <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"></path>
+            </svg>
+            アップロードして保存する
+          </button>
+          <button class="btn btn-secondary" id="recaptureBtn" style="display: none;">
+            再撮影する
+          </button>
+          <button class="btn btn-secondary" id="cancelCaptureBtn" style="background: rgba(255,255,255,0.03);">
+            キャンセルして一覧に戻る
+          </button>
+        </div>
+      </div>
+
+      <!-- B. アップロード完了・連続撮影ステート (successState) -->
+      <div id="successState" class="d-none" style="text-align: center; padding: 12px 0 20px 0; display: flex; flex-direction: column; align-items: center; gap: 16px;">
+        <div style="width: 60px; height: 60px; background: rgba(16, 185, 129, 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2.5px solid var(--success); margin-bottom: 4px;">
+          <svg style="width: 32px; height: 32px; color: var(--success); fill: none; stroke: currentColor; stroke-width: 3;" viewBox="0 0 24 24">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+        </div>
+        <div>
+          <h3 style="font-size: 1.2rem; font-weight: 700; color: var(--text-main); margin-bottom: 6px;">アップロード完了！</h3>
+          <p style="font-size: 0.85rem; color: var(--text-sub); padding: 0 10px;" id="successItemMsg">「備品名」の写真を保存しました。</p>
+        </div>
+
+        <div class="action-group" style="width: 100%; margin-top: 12px;">
+          <button class="btn btn-primary" id="nextItemBtn">
+            次の未撮影の備品へ ➔
+          </button>
+          <button class="btn btn-secondary" id="finishBtn" style="background: rgba(255,255,255,0.06);">
+            撮影を終了して一覧に戻る
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- トースト通知 (データ更新時などの非ブロッキング通知) -->
+  <div id="toast" style="position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(100px); background: rgba(16, 185, 129, 0.95); color: #ffffff; padding: 12px 24px; border-radius: 9999px; font-size: 0.9rem; font-weight: 500; box-shadow: 0 10px 25px rgba(0,0,0,0.3); z-index: 1000; transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); pointer-events: none; display: flex; align-items: center; gap: 8px;">
+    <svg style="width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.5;" viewBox="0 0 24 24">
+      <polyline points="20 6 9 17 4 12"></polyline>
+    </svg>
+    <span id="toastMessage">最新データをロードしました</span>
+  </div>
+
+  <!-- JavaScript -->
+  <script>
+    // URLから渡された起動時自動表示パラメータ
+    const STARTUP_QUERY_ID = "<?= queryParamId ?>";
+    const STARTUP_QUERY_ROW = "<?= queryParamRow ?>";
+
+    // 状態管理
+    let allItems = [];      // 全データ
+    let subjects = {};      // B+Cを合成した教科ごとの統計データ
+    let filteredItems = []; // フィルタ適用後の表示データ
+    let selectedItem = null;
+    let selectedImageData = null; 
+    let nextItemToCapture = null; 
+    
+    // 現在のアクティブ状態
+    let currentView = 'subject';  // 'subject' または 'list'
+    let activeSubjectKey = null;  // 選択された教科キー (B列の番号 + C列の名前)
+    let currentFilter = 'all';    // 写真ステータスフィルター ('all', 'no-photo', 'has-photo')
+
+    const MAX_DISPLAY_COUNT = 100; // 表示上限数
+    
+    // 教科別テーマ設定
+    const SUBJECT_THEMES = {
+      '算数': { bg: 'linear-gradient(135deg, #2563eb, #1d4ed8)', icon: '📐' },
+      '理科': { bg: 'linear-gradient(135deg, #059669, #047857)', icon: '🧪' },
+      '社会': { bg: 'linear-gradient(135deg, #d97706, #b45309)', icon: '🗺️' },
+      '国語': { bg: 'linear-gradient(135deg, #db2777, #be185d)', icon: '📖' },
+      '音楽': { bg: 'linear-gradient(135deg, #7c3aed, #6d28d9)', icon: '🎵' },
+      '図工': { bg: 'linear-gradient(135deg, #ea580c, #c2410c)', icon: '🎨' },
+      '体育': { bg: 'linear-gradient(135deg, #0891b2, #0e7490)', icon: '🏃' },
+      '家庭': { bg: 'linear-gradient(135deg, #f43f5e, #be123c)', icon: '🍳' },
+      '生活': { bg: 'linear-gradient(135deg, #65a30d, #4d7c0f)', icon: '🌱' },
+      '英語': { bg: 'linear-gradient(135deg, #4f46e5, #4338ca)', icon: '🔤' },
+      '外国語': { bg: 'linear-gradient(135deg, #4f46e5, #4338ca)', icon: '🔤' }
+    };
+    const DEFAULT_THEME = { bg: 'linear-gradient(135deg, #475569, #334155)', icon: '📦' };
+
+    // DOM要素の取得
+    const initialLoading = document.getElementById('initialLoading');
+    const subjectView = document.getElementById('subjectView');
+    const subjectGrid = document.getElementById('subjectGrid');
+    
+    const listView = document.getElementById('listView');
+    const backToSubjectsBtn = document.getElementById('backToSubjectsBtn');
+    const currentSubjectTitle = document.getElementById('currentSubjectTitle');
+    const searchFilterArea = document.getElementById('searchFilterArea');
+    const itemList = document.getElementById('itemList');
+    const emptyMessage = document.getElementById('emptyMessage');
+    
+    const statsCount = document.getElementById('statsCount');
+    const searchInput = document.getElementById('searchInput');
+    const clearSearchBtn = document.getElementById('clearSearchBtn');
+    const filterButtons = document.querySelectorAll('.tab-btn');
+    const refreshDataBtn = document.getElementById('refreshDataBtn');
+    const toast = document.getElementById('toast');
+    const toastMessage = document.getElementById('toastMessage');
+    
+    const overlay = document.getElementById('overlay');
+    const bottomSheet = document.getElementById('bottomSheet');
+    const closeSheetBtn = document.getElementById('closeSheetBtn');
+    const cameraInput = document.getElementById('cameraInput');
+    const previewBox = document.getElementById('previewBox');
+    const previewPlaceholder = document.getElementById('previewPlaceholder');
+    const previewImage = document.getElementById('previewImage');
+    
+    const sheetItemName = document.getElementById('sheetItemName');
+    const sheetRowInfo = document.getElementById('sheetRowInfo');
+    const sheetItemSpec = document.getElementById('sheetItemSpec');
+    const sheetItemSerial = document.getElementById('sheetItemSerial');
+    const sheetItemDate = document.getElementById('sheetItemDate');
+    const sheetItemNameNum = document.getElementById('sheetItemNameNum');
+    const sheetItemNum = document.getElementById('sheetItemNum');
+    const sheetExistingPhoto = document.getElementById('sheetExistingPhoto');
+    const sheetDeletePhotoBtn = document.getElementById('sheetDeletePhotoBtn');
+
+    // 操作・完了ステート
+    const captureState = document.getElementById('captureState');
+    const successState = document.getElementById('successState');
+    const successItemMsg = document.getElementById('successItemMsg');
+    const nextItemBtn = document.getElementById('nextItemBtn');
+    const finishBtn = document.getElementById('finishBtn');
+    const cancelCaptureBtn = document.getElementById('cancelCaptureBtn');
+    
+    const uploadProgressBox = document.getElementById('uploadProgressBox');
+    const progressBarFill = document.getElementById('progressBarFill');
+    const progressText = document.getElementById('progressText');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const recaptureBtn = document.getElementById('recaptureBtn');
+
+    window.addEventListener('load', () => {
+      fetchItems();
+      initEventListeners();
+    });
+
+    // ----------------------------------------------------
+    // データロードとB列+C列合成集計
+    // ----------------------------------------------------
+    function fetchItems(isSilent = false) {
+      if (!isSilent) {
+        initialLoading.classList.remove('d-none');
+        subjectView.classList.add('d-none');
+        listView.classList.add('d-none');
+      }
+      
+      google.script.run
+        .withSuccessHandler((response) => {
+          allItems = response.items;
+          
+          buildSubjectDashboard();
+          updateStats();
+          
+          initialLoading.classList.add('d-none');
+          
+          let autoOpened = false;
+          if (STARTUP_QUERY_ID || STARTUP_QUERY_ROW) {
+            const targetItem = allItems.find(item => {
+              if (STARTUP_QUERY_ID && String(item.a).trim() === STARTUP_QUERY_ID.trim()) {
+                return true;
+              }
+              if (STARTUP_QUERY_ROW && String(item.row).trim() === STARTUP_QUERY_ROW.trim()) {
+                return true;
+              }
+              return false;
+            });
+            
+            if (targetItem) {
+              const numPart = targetItem.b ? targetItem.b.trim() : '';
+              const namePart = targetItem.c ? targetItem.c.trim() : '未分類';
+              const targetKey = numPart ? `${numPart} ${namePart}` : namePart;
+              
+              selectSubject(targetKey);
+              showSheet(targetItem);
+              autoOpened = true;
+            }
+          }
+          
+          if (!autoOpened) {
+            if (currentView === 'subject') {
+              showSubjectView();
+            } else {
+              selectSubject(activeSubjectKey);
+            }
+          }
+          
+          if (isSilent) {
+            showToast("最新データをロードしました");
+          }
+        })
+        .withFailureHandler((err) => {
+          alert('データの取得に失敗しました: ' + err.message);
+          initialLoading.innerHTML = `<p style="color: var(--danger); font-weight: bold;">エラーが発生しました。<br>${err.message}</p>`;
+        })
+        .getItems();
+    }
+
+    // B列の番号＋C列の教科名でダッシュボードカードを集計する
+    function buildSubjectDashboard() {
+      subjects = {};
+      
+      allItems.forEach(item => {
+        const numPart = item.b ? item.b.trim() : '';
+        const namePart = item.c ? item.c.trim() : '未分類';
+        
+        // カードの表示用キーを生成 (例: "01 算数")
+        let key = namePart;
+        if (numPart) {
+          key = `${numPart} ${namePart}`;
+        } else if (namePart === '') {
+          key = '未分類';
+        }
+        
+        if (!subjects[key]) {
+          subjects[key] = {
+            key: key,
+            num: numPart,
+            name: namePart,
+            total: 0,
+            photographed: 0
+          };
+        }
+        
+        subjects[key].total++;
+        if (item.photoUrl) {
+          subjects[key].photographed++;
+        }
+      });
+      
+      renderSubjectDashboard();
+    }
+
+    // ダッシュボードの描画（数値・アルファベット順に並べる）
+    function renderSubjectDashboard() {
+      subjectGrid.innerHTML = '';
+      
+      const sortedKeys = Object.keys(subjects).sort((a, b) => {
+        if (a === '未分類') return 1;
+        if (b === '未分類') return -1;
+        return a.localeCompare(b, 'ja', { numeric: true });
+      });
+      
+      sortedKeys.forEach(key => {
+        const data = subjects[key];
+        const percent = data.total > 0 ? Math.round((data.photographed / data.total) * 100) : 0;
+        
+        const card = document.createElement('div');
+        card.className = 'subject-card';
+        
+        const theme = SUBJECT_THEMES[data.name] || DEFAULT_THEME;
+        card.style.background = theme.bg;
+        
+        card.addEventListener('click', () => {
+          selectSubject(data.key);
+        });
+        
+        card.innerHTML = `
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%;">
+            <div class="subj-name">${escapeHtml(data.key)}</div>
+            <span style="font-size: 1.5rem; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.15));">${theme.icon}</span>
+          </div>
+          <div class="subj-stats">
+            <div class="subj-count-text">
+              <span>進捗: ${percent}%</span>
+              <span>${data.photographed}/${data.total}件</span>
+            </div>
+            <div class="subj-progress-bg">
+              <div class="subj-progress-bar" style="width: ${percent}%;"></div>
+            </div>
+          </div>
+        `;
+        subjectGrid.appendChild(card);
+      });
+    }
+
+    // ----------------------------------------------------
+    // ビュー制御
+    // ----------------------------------------------------
+    function showSubjectView() {
+      currentView = 'subject';
+      activeSubjectKey = null;
+      
+      subjectView.classList.remove('d-none');
+      listView.classList.add('d-none');
+      searchFilterArea.classList.add('d-none');
+      
+      searchInput.value = '';
+      clearSearchBtn.style.display = 'none';
+      filterButtons.forEach(b => b.classList.remove('active'));
+      filterButtons[0].classList.add('active'); 
+      currentFilter = 'all';
+      
+      buildSubjectDashboard();
+    }
+
+    function selectSubject(subjKey) {
+      currentView = 'list';
+      activeSubjectKey = subjKey;
+      
+      currentSubjectTitle.innerText = `${subjKey} の備品一覧`;
+      
+      subjectView.classList.add('d-none');
+      listView.classList.remove('d-none');
+      searchFilterArea.classList.remove('d-none');
+      
+      applyFilterAndSearch();
+    }
+
+    // ----------------------------------------------------
+    // フィルタリングと備品リスト描画
+    // ----------------------------------------------------
+    function applyFilterAndSearch() {
+      if (currentView !== 'list') return;
+      
+      const searchWord = searchInput.value.toLowerCase().trim();
+
+      filteredItems = allItems.filter(item => {
+        // 1. 教科キー（B+C列の合成値）の一致確認
+        const numPart = item.b ? item.b.trim() : '';
+        const namePart = item.c ? item.c.trim() : '未分類';
+        let itemKey = namePart;
+        if (numPart) {
+          itemKey = `${numPart} ${namePart}`;
+        } else if (namePart === '') {
+          itemKey = '未分類';
+        }
+        
+        if (itemKey !== activeSubjectKey) return false;
+
+        // 2. 写真ステータスフィルター
+        if (currentFilter === 'no-photo' && item.photoUrl) return false;
+        if (currentFilter === 'has-photo' && !item.photoUrl) return false;
+
+        // 3. 検索キーワード (仕様、製造番号、購入年月日、品名番号、番号、および行番号を部分一致検索)
+        if (searchWord) {
+          const inD = item.d.toLowerCase().includes(searchWord);
+          const inE = item.e.toLowerCase().includes(searchWord);
+          const inF = item.f.toLowerCase().includes(searchWord);
+          const inG = item.g.toLowerCase().includes(searchWord);
+          const inH = item.h.toLowerCase().includes(searchWord);
+          const inRow = String(item.row).includes(searchWord);
+          return inD || inE || inF || inG || inH || inRow;
+        }
+
+        return true;
+      });
+
+      renderItemList();
+    }
+
+    function renderItemList() {
+      itemList.innerHTML = '';
+      
+      if (filteredItems.length === 0) {
+        itemList.classList.add('d-none');
+        emptyMessage.classList.remove('d-none');
+        return;
+      }
+
+      emptyMessage.classList.add('d-none');
+      itemList.classList.remove('d-none');
+
+      const displayCount = Math.min(filteredItems.length, MAX_DISPLAY_COUNT);
+      
+      for (let i = 0; i < displayCount; i++) {
+        const item = filteredItems[i];
+        const card = document.createElement('div');
+        card.className = 'item-card';
+        card.addEventListener('click', () => showSheet(item));
+
+        const hasPhoto    = !!item.photoUrl;
+        const isInspected = !!item.checked;
+        const badgeClass  = hasPhoto ? 'status-badge has-photo' : 'status-badge no-photo';
+        const badgeLabel  = hasPhoto ? '撮影済' : '未撮影';
+        const badgeIcon   = hasPhoto 
+          ? `<svg style="width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2.5;" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>` 
+          : `<svg style="width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2.5;" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>`;
+
+        // ドライブサムネイル URLを軽量取得
+        const thumbUrl = getDriveThumbnailUrl(item.photoUrl);
+
+        const primaryText = item.h ? item.h : (item.e ? `品名番号: ${item.e}` : `備品 (行: ${item.row})`);
+
+        card.innerHTML = `
+          <div style="display:flex;align-items:flex-start;gap:10px;width:100%;">
+            <div class="item-info" style="flex:1;min-width:0;">
+              <div class="item-name">${escapeHtml(primaryText)}</div>
+              <div class="item-details-grid">
+                <div class="grid-item">
+                  <span class="detail-label">購入日:</span>
+                  <span class="detail-val" title="${escapeHtml(item.d)}">${escapeHtml(item.d || '-')}</span>
+                </div>
+                <div class="grid-item">
+                  <span class="detail-label">品名番号:</span>
+                  <span class="detail-val" title="${escapeHtml(item.e)}">${escapeHtml(item.e || '-')}</span>
+                </div>
+                <div class="grid-item">
+                  <span class="detail-label">番号:</span>
+                  <span class="detail-val" title="${escapeHtml(item.f)}">${escapeHtml(item.f || '-')}</span>
+                </div>
+                <div class="grid-item">
+                  <span class="detail-label">規格・型式:</span>
+                  <span class="detail-val" title="${escapeHtml(item.g)}">${escapeHtml(item.g || '-')}</span>
+                </div>
+              </div>
+              <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
+                <span class="${badgeClass}">${badgeIcon}${badgeLabel}</span>
+                ${isInspected ? '<span class="badge-inspected">✓ 検査済</span>' : ''}
+              </div>
+            </div>
+            ${thumbUrl ? `<img class="item-thumb" src="${thumbUrl}" loading="lazy" alt="備品写真" onerror="this.style.display='none'">` : ''}
+          </div>
+        `;
+        itemList.appendChild(card);
+      }
+
+      if (filteredItems.length > MAX_DISPLAY_COUNT) {
+        const footerInfo = document.createElement('div');
+        footerInfo.className = 'list-footer-info';
+        footerInfo.innerText = `他 ${filteredItems.length - MAX_DISPLAY_COUNT} 件のアイテムがあります。検索条件を絞り込んでください。`;
+        itemList.appendChild(footerInfo);
+      }
+    }
+
+    // 全体の統計更新
+    function updateStats() {
+      const total       = allItems.length;
+      const photographed = allItems.filter(item => item.photoUrl).length;
+      const inspected   = allItems.filter(item => item.checked).length;
+      statsCount.innerText = `撮影済: ${photographed} / 検査済: ${inspected} / 全体: ${total}`;
+    }
+
+    // GoogleDrive車の軽量サムネイルURLを生成
+    function getDriveThumbnailUrl(driveUrl) {
+      if (!driveUrl) return null;
+      // https://drive.google.com/file/d/FILE_ID/view形式
+      const m1 = driveUrl.match(/\/d\/([^/?#]+)/);
+      if (m1) return `https://drive.google.com/thumbnail?id=${m1[1]}&sz=w80`;
+      // https://drive.google.com/open?id=FILE_ID 形式
+      const m2 = driveUrl.match(/[?&]id=([^&]+)/);
+      if (m2) return `https://drive.google.com/thumbnail?id=${m2[1]}&sz=w80`;
+      return null;
+    }
+
+    // トースト通知を表示
+    function showToast(msg) {
+      toastMessage.innerText = msg;
+      toast.style.transform = 'translateX(-50%) translateY(0)';
+      setTimeout(() => {
+        toast.style.transform = 'translateX(-50%) translateY(100px)';
+      }, 2500);
+    }
+
+    // ----------------------------------------------------
+    // イベントリスナーの初期化
+    // ----------------------------------------------------
+    function initEventListeners() {
+      backToSubjectsBtn.addEventListener('click', showSubjectView);
+
+      // 最新情報への手動同期ボタン
+      refreshDataBtn.addEventListener('click', () => {
+        refreshDataBtn.classList.add('spinning');
+        fetchItems(true);
+        setTimeout(() => {
+          refreshDataBtn.classList.remove('spinning');
+        }, 1000);
+      });
+
+      searchInput.addEventListener('input', () => {
+        clearSearchBtn.style.display = searchInput.value.length > 0 ? 'flex' : 'none';
+        applyFilterAndSearch();
+      });
+
+      clearSearchBtn.addEventListener('click', () => {
+        searchInput.value = '';
+        clearSearchBtn.style.display = 'none';
+        searchInput.focus();
+        applyFilterAndSearch();
+      });
+
+      filterButtons.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          filterButtons.forEach(b => b.classList.remove('active'));
+          e.target.classList.add('active');
+          currentFilter = e.target.getAttribute('data-filter');
+          applyFilterAndSearch();
+        });
+      });
+
+      closeSheetBtn.addEventListener('click', hideSheet);
+      overlay.addEventListener('click', hideSheet);
+      cancelCaptureBtn.addEventListener('click', hideSheet);
+
+      previewBox.addEventListener('click', () => {
+        if (uploadProgressBox.style.display !== 'flex') {
+          cameraInput.click();
+        }
+      });
+
+      recaptureBtn.addEventListener('click', () => {
+        cameraInput.click();
+      });
+
+      cameraInput.addEventListener('change', handleFileSelect);
+      uploadBtn.addEventListener('click', startUpload);
+
+      nextItemBtn.addEventListener('click', () => {
+        if (nextItemToCapture) {
+          showSheet(nextItemToCapture);
+        }
+      });
+      finishBtn.addEventListener('click', hideSheet);
+      sheetDeletePhotoBtn.addEventListener('click', handleDeletePhoto);
+    }
+
+    // ----------------------------------------------------
+    // ボトムシート・画像アップロード制御
+    // ----------------------------------------------------
+    function showSheet(item) {
+      selectedItem = item;
+      selectedImageData = null;
+      nextItemToCapture = null;
+
+      captureState.classList.remove('d-none');
+      successState.classList.add('d-none');
+
+      // 基本情報セット
+      const itemName = item.h ? item.h : (item.e ? `品名番号: ${item.e}` : `${item.c} の備品`);
+      sheetItemName.innerText = itemName;
+      sheetRowInfo.innerText = `行番号: ${item.row}`;
+      sheetItemSpec.innerText = item.g || '-';
+      sheetItemSerial.innerText = item.location || '-';
+      sheetItemDate.innerText = item.d || '-';
+      sheetItemNameNum.innerText = item.e || '-';
+      sheetItemNum.innerText = item.f || '-';
+
+      if (item.photoUrl) {
+        sheetExistingPhoto.href = item.photoUrl;
+        sheetExistingPhoto.classList.remove('d-none');
+        sheetDeletePhotoBtn.classList.remove('d-none');
+      } else {
+        sheetExistingPhoto.classList.add('d-none');
+        sheetDeletePhotoBtn.classList.add('d-none');
+      }
+
+      // 検査済チェック状態を反映（ローカルキャッシュ優先）
+      updateInspectionUI(item.checked || false);
+
+
+      // 右上サムネイルを表示
+      const sheetThumb = document.getElementById('sheetThumbImg');
+      if (sheetThumb) {
+        const thumbUrl = getDriveThumbnailUrl(item.photoUrl);
+        if (thumbUrl) {
+          sheetThumb.src = thumbUrl;
+          sheetThumb.style.display = 'block';
+        } else {
+          sheetThumb.style.display = 'none';
+        }
+      }
+
+      resetPreviewState();
+
+      // シートを表示
+      overlay.classList.add('active');
+      bottomSheet.classList.add('active');
+      document.body.style.overflow = 'hidden';
+    }
+
+    // 検査ステータス排他ボタンの UI 更新
+    function updateInspectionUI(isChecked) {
+      const btnUninspected = document.getElementById('btnInspUninspected');
+      const btnInspected   = document.getElementById('btnInspInspected');
+      if (!btnUninspected || !btnInspected) return;
+
+      if (isChecked) {
+        btnInspected.classList.add('active');
+        btnUninspected.classList.remove('active');
+      } else {
+        btnUninspected.classList.add('active');
+        btnInspected.classList.remove('active');
+      }
+    }
+
+    // 検査ステータスの変更処理 (排他選択)
+    function setInspectionState(isChecked) {
+      if (!selectedItem || !selectedItem.a) {
+        showToast('登載番号がない備品です');
+        return;
+      }
+
+      // 既に同じ状態なら処理スキップ
+      if (selectedItem.checked === isChecked) return;
+
+      const btnUninspected = document.getElementById('btnInspUninspected');
+      const btnInspected   = document.getElementById('btnInspInspected');
+
+      // 1. 即時に詳細UIと選択中オブジェクトの値を更新
+      updateInspectionUI(isChecked);
+      selectedItem.checked = isChecked;
+
+      // 2. 即時に全体配列内の該当データと一覧表・統計表示を先行更新 (楽観的UI更新)
+      const idx = allItems.findIndex(x => x.row === selectedItem.row);
+      if (idx !== -1) {
+        allItems[idx].checked = isChecked;
+      }
+      applyFilterAndSearch();
+      updateStats();
+
+      // 3. サーバーへ書き込み開始
+      if (btnUninspected) btnUninspected.disabled = true;
+      if (btnInspected)   btnInspected.disabled = true;
+
+      google.script.run
+        .withSuccessHandler(() => {
+          if (btnUninspected) btnUninspected.disabled = false;
+          if (btnInspected)   btnInspected.disabled = false;
+          showToast(isChecked ? '検査済にしました ✓' : '未点検に戻しました');
+        })
+        .withFailureHandler(err => {
+          if (btnUninspected) btnUninspected.disabled = false;
+          if (btnInspected)   btnInspected.disabled = false;
+          
+          // 保存に失敗した場合はロールバック
+          updateInspectionUI(!isChecked);
+          selectedItem.checked = !isChecked;
+          if (idx !== -1) {
+            allItems[idx].checked = !isChecked;
+          }
+          applyFilterAndSearch();
+          updateStats();
+          showToast('保存に失敗しました: ' + err.message);
+        })
+        .setCheckboxState(selectedItem.a, isChecked);
+    }
+
+    // 写真削除ボタンクリック時の処理
+    function handleDeletePhoto() {
+      if (!selectedItem) return;
+      const confirmDel = confirm('登録されている写真（リンク）を台帳から削除しますか？\n（※Googleドライブ上の画像ファイル自体は削除されません）');
+      if (!confirmDel) return;
+
+      sheetDeletePhotoBtn.disabled = true;
+      google.script.run
+        .withSuccessHandler(() => {
+          sheetDeletePhotoBtn.disabled = false;
+          showToast('写真を削除しました');
+          
+          // ローカルキャッシュの更新
+          selectedItem.photoUrl = '';
+          
+          // UIの更新
+          sheetExistingPhoto.classList.add('d-none');
+          sheetDeletePhotoBtn.classList.add('d-none');
+          
+          const sheetThumb = document.getElementById('sheetThumbImg');
+          if (sheetThumb) sheetThumb.style.display = 'none';
+          
+          // 全体配列内の該当データを更新
+          const idx = allItems.findIndex(x => x.row === selectedItem.row);
+          if (idx !== -1) {
+            allItems[idx].photoUrl = '';
+          }
+          
+          // 一覧リストと統計を再描画
+          applyFilterAndSearch();
+          updateStats();
+        })
+        .withFailureHandler((err) => {
+          sheetDeletePhotoBtn.disabled = false;
+          alert('削除に失敗しました: ' + err.message);
+        })
+        .deletePhoto(selectedItem.a, selectedItem.row);
+    }
+
+    function hideSheet() {
+      if (uploadProgressBox.style.display === 'flex') return;
+
+      overlay.classList.remove('active');
+      bottomSheet.classList.remove('active');
+      document.body.style.overflow = '';
+      selectedItem = null;
+      selectedImageData = null;
+      cameraInput.value = '';
+    }
+
+    function resetPreviewState() {
+      previewPlaceholder.style.display = 'flex';
+      previewImage.style.display = 'none';
+      previewImage.src = '';
+      uploadBtn.disabled = true;
+      recaptureBtn.style.display = 'none';
+      cancelCaptureBtn.style.display = 'block';
+      uploadProgressBox.style.display = 'none';
+      progressBarFill.style.width = '0%';
+    }
+
+    function handleFileSelect(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      uploadBtn.disabled = true;
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          selectedImageData = compressImage(img, 1200, 0.8);
+          
+          previewImage.src = selectedImageData;
+          previewPlaceholder.style.display = 'none';
+          previewImage.style.display = 'block';
+          
+          uploadBtn.disabled = false;
+          recaptureBtn.style.display = 'flex';
+        };
+        img.src = event.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function compressImage(img, maxWidth, quality) {
+      const canvas = document.createElement('canvas');
+      let width = img.width;
+      let height = img.height;
+
+      if (width > height) {
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+      } else {
+        if (height > maxWidth) {
+          width = Math.round((width * maxWidth) / height);
+          height = maxWidth;
+        }
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+
+      return canvas.toDataURL('image/jpeg', quality);
+    }
+
+    // 連続撮影用の「次の未撮影項目」を検索
+    function findNextUnphotographedItem() {
+      return allItems.find(item => {
+        const numPart = item.b ? item.b.trim() : '';
+        const namePart = item.c ? item.c.trim() : '未分類';
+        let itemKey = namePart;
+        if (numPart) {
+          itemKey = `${numPart} ${namePart}`;
+        } else if (namePart === '') {
+          itemKey = '未分類';
+        }
+        return itemKey === activeSubjectKey && !item.photoUrl && item.row !== selectedItem.row;
+      });
+    }
+
+    function startUpload() {
+      if (!selectedItem || !selectedImageData) return;
+
+      uploadBtn.disabled = true;
+      recaptureBtn.style.display = 'none';
+      cancelCaptureBtn.style.display = 'none';
+      closeSheetBtn.style.display = 'none';
+      uploadProgressBox.style.display = 'flex';
+      
+      let progress = 10;
+      progressBarFill.style.width = `${progress}%`;
+      progressText.innerText = '画像をアップロード用にエンコードしています...';
+
+      const interval = setInterval(() => {
+        if (progress < 85) {
+          progress += Math.floor(Math.random() * 15) + 5;
+          if (progress > 85) progress = 85;
+          progressBarFill.style.width = `${progress}%`;
+          if (progress > 50) {
+            progressText.innerText = 'Googleドライブに保存し、スプレッドシートに書き込んでいます...';
+          }
+        }
+      }, 400);
+
+      // 保存するファイル名を設定 (例: 「行番号_品名_日付.jpg」)
+      const cleanName = (selectedItem.g || selectedItem.e || 'item').replace(/[\/\\:*?"<>|]/g, '');
+      const dateString = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+      const fileName = `${selectedItem.row}_${cleanName}_${dateString}.jpg`;
+
+      google.script.run
+        .withSuccessHandler((response) => {
+          clearInterval(interval);
+          progressBarFill.style.width = '100%';
+          progressText.innerText = '保存完了！';
+
+          const updatedItem = allItems.find(item => item.row === selectedItem.row);
+          if (updatedItem) {
+            updatedItem.photoUrl = response.url;
+          }
+
+          applyFilterAndSearch();
+          updateStats();
+          
+          setTimeout(() => {
+            showSuccessState();
+          }, 400);
+        })
+        .withFailureHandler((err) => {
+          clearInterval(interval);
+          uploadProgressBox.style.display = 'none';
+          uploadBtn.disabled = false;
+          recaptureBtn.style.display = 'flex';
+          cancelCaptureBtn.style.display = 'block';
+          closeSheetBtn.style.display = 'flex';
+          alert('アップロードに失敗しました: ' + err.message);
+        })
+        .uploadPhoto(selectedItem.row, selectedImageData, fileName);
+    }
+
+    function showSuccessState() {
+      uploadProgressBox.style.display = 'none';
+      closeSheetBtn.style.display = 'flex';
+      
+      const itemName = selectedItem.g ? selectedItem.g : (selectedItem.e ? `品名番号: ${selectedItem.e}` : `${selectedItem.c} の備品`);
+      successItemMsg.innerText = `「${itemName}」の写真をスプレッドシートのQ列に保存しました。`;
+
+      captureState.classList.add('d-none');
+      successState.classList.remove('d-none');
+
+      nextItemToCapture = findNextUnphotographedItem();
+      
+      // 未撮影件数を取得
+      const remainingCount = allItems.filter(item => {
+        const numPart = item.b ? item.b.trim() : '';
+        const namePart = item.c ? item.c.trim() : '未分類';
+        let itemKey = namePart;
+        if (numPart) {
+          itemKey = `${numPart} ${namePart}`;
+        } else if (namePart === '') {
+          itemKey = '未分類';
+        }
+        return itemKey === activeSubjectKey && !item.photoUrl;
+      }).length;
+
+      if (nextItemToCapture) {
+        nextItemBtn.classList.remove('d-none');
+        nextItemBtn.innerText = `次の未撮影の備品へ (残り ${remainingCount} 件) ➔`;
+      } else {
+        nextItemBtn.classList.add('d-none');
+        successItemMsg.innerText += '\nおめでとうございます！この教科のすべての備品の撮影が完了しました。';
+      }
+    }
+
+    // エスケープ
+    function escapeHtml(str) {
+      if (typeof str !== 'string') return str;
+      return str.replace(/[&<>"']/g, (match) => {
+        const escapeMap = {
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#39;'
+        };
+        return escapeMap[match];
+      });
+    }
+  </script>
+</body>
+</html>

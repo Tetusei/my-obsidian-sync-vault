@@ -1,0 +1,7 @@
+.obsidian/
+.stfolder/
+.claude/
+.claudian/
+.DS_Store
+Thumbs.db
+node_modules/
