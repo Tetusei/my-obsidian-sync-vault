@@ -1,9 +1,9 @@
 /**
  * Config.gs
- * システムの共通設定・定数管理 (v2.6.0: M列成績・所見の出力先を要録シートのみに変更)
+ * システムの共通設定・定数管理 (v2.7.0: 全シートの上下中央揃え機能および書き込み時中央整列の自動化を追加)
  */
 const CONFIG = {
-  VERSION: 'v2.6.0', 
+  VERSION: 'v2.7.0', 
 
   TARGET_YEAR: 2026, 
   MODEL_NAME: 'gemini-flash-latest',

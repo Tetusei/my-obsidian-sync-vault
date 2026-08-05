@@ -197,13 +197,14 @@ ${compiledRecords.join('\n')}
         // 【修正追加】JSON.parse を Utils.gs の safeParseJSON に変更し、エラーを回避
         const resultJson = safeParseJSON(aiResponse);
         
+        sheet.getRange(r, CONFIG.COL_FEATURES_START, 1, 5).setVerticalAlignment('middle');
         sheet.getRange(r, CONFIG.COL_FEATURES_START).setValue(resultJson.feature1 || "");
         sheet.getRange(r, CONFIG.COL_FEATURES_START + 1).setValue(resultJson.feature2 || "");
         sheet.getRange(r, CONFIG.COL_FEATURES_START + 2).setValue(resultJson.feature3 || "");
         sheet.getRange(r, CONFIG.COL_FEATURES_START + 3).setValue(resultJson.feature4 || "");
         sheet.getRange(r, CONFIG.COL_FEATURES_START + 4).setValue(resultJson.feature5 || "");
         
-        aiCell.setValue(resultJson.comment || "").setBackground(null);
+        aiCell.setValue(resultJson.comment || "").setBackground(null).setVerticalAlignment('middle');
       } catch (e) {
         aiCell.setValue(`⚠️ AI処理エラー: ${e.message}`).setBackground('#f8cccc');
         SpreadsheetApp.flush();
@@ -364,7 +365,7 @@ ${additionalPrompt ? `【追加の指示】\n${additionalPrompt}\n` : ""}
 
       try {
         const aiResponse = callGeminiAPI(prompt, baseSheet, false);
-        targetCell.setValue(aiResponse).setBackground(null);
+        targetCell.setValue(aiResponse).setBackground(null).setVerticalAlignment('middle');
       } catch (e) {
         targetCell.setValue(`⚠️ AI処理エラー: ${e.message}`).setBackground('#f8cccc');
       }
@@ -443,7 +444,7 @@ function proofreadCommentsInternal(allRows) {
         targetCell.setBackground(null);
         
         if (plainText === finalComment) {
-          targetCell.setValue(finalComment);
+          targetCell.setValue(finalComment).setVerticalAlignment('middle');
           continue; 
         }
         
@@ -458,7 +459,7 @@ function proofreadCommentsInternal(allRows) {
           builder.setTextStyle(start, end, redStyle);
           offset += 11; 
         }
-        targetCell.setRichTextValue(builder.build());
+        targetCell.setRichTextValue(builder.build()).setVerticalAlignment('middle');
       } catch (e) {
         targetCell.setValue(`⚠️ AI処理エラー: ${e.message}`).setBackground('#f8cccc');
       }

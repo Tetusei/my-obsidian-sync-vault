@@ -27,7 +27,9 @@ function onOpen() {
   const menu3 = ui.createMenu('【3】集計・ダッシュボード')
     .addItem('📊 各学期の記録数（メモ）を名簿に集計する', 'updateRecordCounts')
     .addItem('📈 成績データをM列にまとめて出力する', 'generateSeisekiSummary')
-    .addItem('📋 要録シートのM列に「成績」と「推敲所見」を出力する', 'exportToYourokuMColumn');
+    .addItem('📋 要録シートのM列に「成績」と「推敲所見」を出力する', 'exportToYourokuMColumn')
+    .addSeparator()
+    .addItem('↕️ 全シートのセルを「上下中央揃え」に整える', 'formatAllSheetsVerticalMiddle');
 
   const menu4 = ui.createMenu('【4】メインテナンス')
     .addItem('💾 バックアップを作成', 'createBackup')
@@ -269,7 +271,7 @@ function generateSeisekiSummary() {
   }
 
   // M列（13列目）に書き込み
-  sheet.getRange(3, 13, numRows, 1).setValues(summaryList);
+  sheet.getRange(3, 13, numRows, 1).setValues(summaryList).setVerticalAlignment('middle');
   ss.toast('M列への成績まとめ出力が完了しました！', '完了', 5);
 }
 
@@ -347,10 +349,31 @@ function exportToYourokuMColumn() {
     }
 
     // M列（13列目）に一括書き込み
-    sheet.getRange(2, 13, numRows, 1).setValues(resultList);
+    sheet.getRange(2, 13, numRows, 1).setValues(resultList).setVerticalAlignment('middle');
   });
 
   ss.toast('要録シートのM列への転記・出力が完了しました！', '完了', 5);
+}
+
+/**
+ * スプレッドシート内のすべてのシート（全セル範囲）の垂直配置を「上下中央揃え（middle）」に設定する
+ */
+function formatAllSheetsVerticalMiddle() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheets = ss.getSheets();
+  const ui = SpreadsheetApp.getUi();
+
+  ss.toast('全シートの上下中央揃えを設定中...', '処理中', 3);
+
+  sheets.forEach(sheet => {
+    const lastRow = sheet.getLastRow();
+    const lastCol = sheet.getLastColumn();
+    if (lastRow > 0 && lastCol > 0) {
+      sheet.getRange(1, 1, lastRow, lastCol).setVerticalAlignment('middle');
+    }
+  });
+
+  ss.toast('全シートの上下中央揃えが完了しました！', '完了', 5);
 }
 
 /**
