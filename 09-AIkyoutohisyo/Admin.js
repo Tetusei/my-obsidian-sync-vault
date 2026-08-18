@@ -45,6 +45,7 @@ function onOpen() {
       .addItem('❌ 音声メモ連携を「OFF」にする', 'turnOffVoiceMemoTrigger')
       .addSeparator()
       .addItem('💬 チャット通知のテスト送信', 'admin_testChat')
+      .addItem('🔐 チャット受信URLを安全に設定', 'admin_setupChatWebhookToken')
       .addItem('📦 バックアップを作成', 'admin_createBackup')
       .addItem('ℹ️ バージョン確認', 'admin_showVersion')
     )
@@ -68,11 +69,8 @@ function admin_setupTrigger() {
   ScriptApp.newTrigger('admin_triggerOnOpen').forSpreadsheet(ss).onOpen().create();
   ScriptApp.newTrigger('admin_triggerOnEdit').forSpreadsheet(ss).onEdit().create();
   
-  // 既存の音声メモトリガー
-  ScriptApp.newTrigger('processVoiceMemo').forSpreadsheet(ss).onFormSubmit().create();
-  
-  // ✨【新規追加】電話伝言用のフォーム送信トリガー
-  ScriptApp.newTrigger('processPhoneMemo').forSpreadsheet(ss).onFormSubmit().create();
+  // フォーム送信は共通ルーターで一度だけ受け、回答先に応じて処理を振り分ける
+  ScriptApp.newTrigger(Config.FORM_SUBMIT_HANDLER).forSpreadsheet(ss).onFormSubmit().create();
   
   ScriptApp.newTrigger('sendDailyMorningDigest').timeBased().everyDays(1).atHour(7).create();
   ScriptApp.newTrigger('generateDailyReport').timeBased().everyDays(1).atHour(16).nearMinute(45).create();
@@ -219,12 +217,34 @@ function openAiMinutesUrl() {
 // ★ダッシュボードの全自動同期・編集検知
 // ==========================================
 function admin_triggerOnOpen() {
+  ensureFormSubmitRouter_();
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(Config.SHEET_NAME_DASHBOARD);
   if (!sheet) return;
   const today = new Date();
   sheet.getRange('B1').setValue(today);
   admin_updateDashboardByDate(today, sheet);
+}
+
+function ensureFormSubmitRouter_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const legacyHandlers = ['processVoiceMemo', 'processPhoneMemo'];
+  const triggers = ScriptApp.getProjectTriggers();
+  const routerTriggers = [];
+
+  triggers.forEach(trigger => {
+    const handler = trigger.getHandlerFunction();
+    if (legacyHandlers.includes(handler)) {
+      ScriptApp.deleteTrigger(trigger);
+    } else if (handler === Config.FORM_SUBMIT_HANDLER) {
+      routerTriggers.push(trigger);
+    }
+  });
+
+  routerTriggers.slice(1).forEach(trigger => ScriptApp.deleteTrigger(trigger));
+  if (routerTriggers.length === 0) {
+    ScriptApp.newTrigger(Config.FORM_SUBMIT_HANDLER).forSpreadsheet(ss).onFormSubmit().create();
+  }
 }
 
 function admin_triggerOnEdit(e) {
@@ -569,6 +589,9 @@ function deleteSelectedSchedules() {
   }
 
   let msg = `全体カレンダーから行事を ${deletedCount} 件削除しました。`;
+  if (unassignedCount > 0) {
+    msg += `（未登録の手書き行 ${unassignedCount} 件も削除しました）`;
+  }
   if (skippedTodoCount > 0) {
     msg += `（※個人ToDo ${skippedTodoCount} 件は安全のためスキップしました）`;
   }

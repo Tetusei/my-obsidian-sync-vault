@@ -24,8 +24,14 @@ function fetchAndFilterMail() {
   }
   console.log(`[検索クエリ] ${searchQuery}`);
   
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(1000)) {
+    console.log('メール解析は既に実行中のため、今回の処理をスキップします。');
+    return;
+  }
+
   try {
-    const threads = GmailApp.search(searchQuery);
+    const threads = GmailApp.search(searchQuery, 0, Config.MAIL_FETCH_LIMIT);
     console.log(`[発見した未読スレッド数] ${threads.length} 通`);
     if (threads.length === 0) return; 
 
@@ -35,7 +41,9 @@ function fetchAndFilterMail() {
     // threads.forEach から forループ に変更（途中のスキップや休憩を制御するため）
     for (let i = 0; i < threads.length; i++) {
       const thread = threads[i];
-      const message = thread.getMessages()[0];
+      // スレッド先頭ではなく、最新の未読メッセージを1件ずつ処理する
+      const message = thread.getMessages().reverse().find(item => item.isUnread());
+      if (!message) continue;
       const subject = message.getSubject();
       const body = message.getPlainBody();
       const from = message.getFrom();
@@ -68,7 +76,7 @@ function fetchAndFilterMail() {
       if (isErrorMail || isGasMail) {
         const reason = isErrorMail ? "配信不能通知等のシステムエラーメール" : "Google Apps Script 関連のシステム通知メール";
         console.log(`⚪ [システムメール除外] 「${subject}」は${reason}のため、既読にしてスキップします。`);
-        thread.markRead();
+        message.markRead();
         continue;
       }
 
@@ -78,11 +86,11 @@ function fetchAndFilterMail() {
       // 1. 同一日の重複メール判定（異なるルートから転送された同一メール of スキップ）
       if (isDuplicateEmail(todoSheet, subject, body, receptionDate)) {
         console.log(`⚪ [重複検知] 「${subject}」は同日内に既に登録されているため、登録をスキップし既読にします。`);
-        thread.markRead();
+        message.markRead();
         continue;
       }
 
-      const analysis = askGemini(subject, body, apiKey, modelName, ss);
+      const analysis = askGemini(subject, body, modelName);
 
       // 🚨 安全装置：AIからの応答が正常に取得できなかった場合は、未読のまま残して次のメールへ
       if (analysis === null) {
@@ -178,7 +186,7 @@ function fetchAndFilterMail() {
       }
 
       // 正常に解析・判定が終わった場合のみ、メールを既読にする
-      thread.markRead();
+      message.markRead();
       console.log(`✔ [既読化完了] ${subject}`);
 
       // 🏁 大量メール処理時のAPI制限（連続連投）を回避するため、2秒間休憩を入れる
@@ -190,10 +198,12 @@ function fetchAndFilterMail() {
   } catch (e) {
     console.error("【重大エラー発生】: " + e.stack);
     ss.toast("エラーが発生しました: " + e.message, "システム警告⚠️", 10);
+  } finally {
+    lock.releaseLock();
   }
 }
 
-function askGemini(subject, body, apiKey, modelName, ss) {
+function askGemini(subject, body, modelName) {
   // 🚨 安全装置：本文が長すぎる場合のAPIエラーを防ぐため、最初の2000文字でカット
   const safeBody = body ? body.substring(0, 2000) : "";
 

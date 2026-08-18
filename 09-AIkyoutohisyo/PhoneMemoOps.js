@@ -70,8 +70,6 @@ function processPhoneMemo(e) {
   }
 
   // 4. Gemini APIに仕分けを依頼するプロンプトの作成
-  const apiURL = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
-  
   const prompt = `あなたは学校の優秀な教頭秘書AIです。以下の【電話・伝言メモ】を読み、提供された【名簿データ】を参考に、誰宛ての伝言かを特定してください。
 
 【電話・伝言メモ】
@@ -129,7 +127,11 @@ ${rosterText}
     newRow[Config.TODO_COL.PRIORITY] = "中";
     newRow[Config.TODO_COL.STATUS] = "未着手";
     newRow[Config.TODO_COL.ACTION] = false;
-    newRow[Config.TODO_COL.STAKEHOLDER] = resultJson.targetStaff;
+    // STAKEHOLDER（J列）は「転送先の部署」用の列のため、個人名はNAME（K列）に入れる。
+    // 「全員」の場合はどちらにも入れず、STAKEHOLDERは空のままにする。
+    if (resultJson.targetStaff && resultJson.targetStaff !== "全員") {
+      newRow[Config.TODO_COL.NAME] = resultJson.targetStaff;
+    }
     newRow[Config.TODO_COL.MAIL_LINK] = "";
     newRow[Config.TODO_COL.MEMO] = resultJson.targetStaff ? `【電話伝言】宛先: ${resultJson.targetStaff}先生` : "【電話伝言】全員宛";
     newRow[Config.TODO_COL.COMPLETED_DATE] = "";

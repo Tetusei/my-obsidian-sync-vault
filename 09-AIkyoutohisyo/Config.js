@@ -1,11 +1,12 @@
 /**
  * Config.gs
- * v3.1.7: 初期設定時のToDoシート入力規則再適用処理（ensureTodoSheetColumns）をループ処理から一括範囲設定（バッチ）に変更し、タイムアウトとフリーズ問題を修正
+ * v3.1.8: フォーム送信の重複処理、メール取りこぼし・同時実行、Webアプリの認証不足を修正
  */
 
 const Config = {
-  VERSION: 'v3.1.7', 
+  VERSION: 'v3.1.8',
   FISCAL_YEAR: '2026年（令和8年）',
+  SPREADSHEET_ID: '1-3bTUULK0PuQ3KzojTraGI9PGOg7XUJYcz6W6EgW9tE',
   
   SHEET_NAME_TODO: 'ToDo',
   SHEET_NAME_MASTER: '基礎データ',
@@ -52,6 +53,9 @@ const Config = {
     TIMESTAMP: 0, EMAIL: 1, TITLE: 2, CONTENT: 3, PIC: 4, DUE_DATE: 5, PRIORITY: 6, NEXT_ACTION: 7, MEMO: 8
   },
   FORM_QUESTION_TITLE_PIC: '担当',
+  FORM_SUBMIT_HANDLER: 'routeFormSubmit',
+  MAIL_FETCH_LIMIT: 20,
+  CHAT_WEBHOOK_TOKEN_PROPERTY: 'CHAT_WEBHOOK_TOKEN',
   
   FORWARD_DESTINATIONS: {
     '進路指導部': 'shinro@example.com',
@@ -91,7 +95,9 @@ function getApiKey() {
       SpreadsheetApp.flush();
       return val;
     }
-    return val;
+    // マスク文字列のまま（＝プロパティに未格納）の場合は、マスク文字列自体を
+    // APIキーとして返してしまわないよう、未設定として空文字を返す
+    return "";
   } catch(e) {
     console.error("getApiKey error:", e);
     return "";

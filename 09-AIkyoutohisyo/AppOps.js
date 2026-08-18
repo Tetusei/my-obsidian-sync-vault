@@ -35,7 +35,6 @@ function createSchoolDocument() {
   if (!title || !content) { SpreadsheetApp.getUi().alert("「タイトル」と「内容」を入力してください。"); return; }
   ss.toast("文書の体裁を整えています...", "🪄 文書構成中");
 
-  const apiKey = getApiKey();
   const modelName = masterSheet.getRange(Config.MASTER_POS.MODEL_NAME_CELL).getValue() || "gemini-1.5-flash";
   
   const prompt = `あなたは日本の公立学校の管理職をサポートする文書作成アシスタントです。
@@ -45,7 +44,7 @@ function createSchoolDocument() {
 【責任者氏名】: ${docSheet.getRange(Config.DOC_FACTORY_POS.PRINCIPAL_NAME).getValue()}
 【ルール】時候の挨拶を含め正式な公文書に。役職名はシートから取得した「${roleLabel}」を使用すること。出力時は「${roleLabel} ◯◯ ◯◯」のように役職名と氏名の間に全角スペースを入れ、役職名自体の文字間も公文書として美しい体裁（例：代 表 者、校 長 など）に整えること。解説不要で本文のみ。`;
 
-  const draftText = callGeminiAPI(prompt, apiKey, modelName);
+  const draftText = callGeminiAPI(prompt, modelName);
   if (!draftText) { SpreadsheetApp.getUi().alert("通信に失敗しました。"); return; }
 
   const doc = DocumentApp.create(title);
@@ -93,12 +92,11 @@ function finalizeMinutes() {
     }
 
     ss.toast(`「${latestFile.getName()}」を分析中...`, "🪄 AI秘書");
-    const apiKey = getApiKey();
     const modelName = masterSheet.getRange(Config.MASTER_POS.MODEL_NAME_CELL).getValue() || "gemini-1.5-flash";
     const finalPrompt = `あなたは学校組織の事務局担当です。提供情報を元に正式な「議事録」を作成してください。
 【ルール】「会議概要」「決定事項」「今後の課題」「担当タスク」で整理。簡潔な公的文体に。余計な解説は不要。`;
 
-    const formattedText = callGeminiAPI_v2(finalPrompt + "\n\n" + promptText, apiKey, modelName, fileData);
+    const formattedText = callGeminiAPI_v2(finalPrompt + "\n\n" + promptText, modelName, fileData);
     if (!formattedText) { ui.alert("通信失敗。ファイルサイズ超過等の可能性があります。"); return; }
 
     const finalDoc = DocumentApp.create(`【清書版】${latestFile.getName().replace(".pdf", "")}`);
@@ -126,7 +124,6 @@ function runRosterCheck() {
   
   const rosterUrl = masterSheet.getRange(Config.MASTER_POS.ROSTER_FILE_URL_CELL).getValue();
   const folderUrl = masterSheet.getRange(Config.MASTER_POS.WORK_FOLDER_URL_CELL).getValue();
-  const apiKey = getApiKey();
   const modelName = masterSheet.getRange(Config.MASTER_POS.MODEL_NAME_CELL).getValue();
 
   if (!rosterUrl || !folderUrl) { SpreadsheetApp.getUi().alert("B14, B15にURLを入力してください。"); return; }
@@ -143,7 +140,7 @@ function runRosterCheck() {
     ss.toast(`${file.getName()} 解析中...`);
     try {
       const fileText = extractTextFromFile(file);
-      if (fileText) checkResults.push(askGeminiForVerification(fileText, rosterData, file.getName(), apiKey, modelName));
+      if (fileText) checkResults.push(askGeminiForVerification(fileText, rosterData, file.getName(), modelName));
     } catch (e) { checkResults.push(`### 【エラー】${file.getName()}\n${e.toString()}`); }
   }
 
@@ -256,6 +253,10 @@ function syncTasksToCalendar() {
   }
   
   const calendar = CalendarApp.getCalendarById(calendarId);
+  if (!calendar) {
+    SpreadsheetApp.getUi().alert("基礎データのB18セルのカレンダーIDが正しくないか、アクセスできません。");
+    return;
+  }
   const data = ss.getSheetByName(Config.SHEET_NAME_TODO).getDataRange().getValues();
   data.shift(); 
   data.forEach(row => {
@@ -281,7 +282,7 @@ function getTodayEventsText() {
 }
 
 /* --- Gemini API 共通関数群 --- */
-function callGeminiAPI(prompt, apiKey, modelName) {
+function callGeminiAPI(prompt, modelName) {
   const payload = { "contents": [{ "parts": [{ "text": prompt }] }] };
   try {
     const res = callGeminiWithRotation(payload, modelName);
@@ -292,7 +293,7 @@ function callGeminiAPI(prompt, apiKey, modelName) {
   }
 }
 
-function callGeminiAPI_v2(prompt, apiKey, modelName, fileData = null) {
+function callGeminiAPI_v2(prompt, modelName, fileData = null) {
   const parts = [{ "text": prompt }];
   if (fileData) parts.push({ "inline_data": fileData });
   const payload = { "contents": [{ "parts": parts }] };
@@ -325,13 +326,31 @@ function extractTextFromFile(file) {
     return text;
   } catch (e) { return null; }
 }
-function askGeminiForVerification(content, roster, fileName, apiKey, modelName) {
+function askGeminiForVerification(content, roster, fileName, modelName) {
   const prompt = `あなたは校閲担当。名簿データ(正解)とファイル内容を照合し、漢字や出席番号の不一致を指摘して下さい。\n【名簿】\n${roster}\n【ファイル名】${fileName}\n【内容】\n${content}`;
-  const res = callGeminiAPI(prompt, apiKey, modelName);
+  const res = callGeminiAPI(prompt, modelName);
   return `## ファイル名: ${fileName}\n\n${res || "エラーが発生しました。"}`;
 }
 
 /* --- 📱 音声メモ（フォーム）自動処理 --- */
+function routeFormSubmit(e) {
+  if (!e || !e.range) {
+    console.warn('フォーム送信イベントを識別できないため処理を中止しました。');
+    return;
+  }
+
+  const sheetName = e.range.getSheet().getName();
+  const questionTitles = e.namedValues ? Object.keys(e.namedValues) : [];
+  const identificationText = `${sheetName} ${questionTitles.join(' ')}`;
+
+  if (/(電話|伝言)/.test(identificationText)) {
+    processPhoneMemo(e);
+    return;
+  }
+
+  processVoiceMemo(e);
+}
+
 function processVoiceMemo(e) {
   if (!e || !e.values) return; 
   const rawText = e.values[1]; 
@@ -341,7 +360,6 @@ function processVoiceMemo(e) {
   const masterSheet = ss.getSheetByName(Config.SHEET_NAME_MASTER);
   const todoSheet = ss.getSheetByName(Config.SHEET_NAME_TODO);
   
-  const apiKey = getApiKey();
   const modelName = masterSheet.getRange(Config.MASTER_POS.MODEL_NAME_CELL).getValue() || "gemini-1.5-flash";
 
   const prompt = `あなたは優秀な学校事務の秘書です。以下の教頭先生の音声入力メモを分析し、ToDoリスト用のデータに整理してください。
@@ -354,7 +372,7 @@ function processVoiceMemo(e) {
 【超重要ルール】
 「内容」の文章中には、人間が見て一目でスケジュールがわかるよう、「〇月〇日(〇)までに」「明日の午前中に」といった【期限や日時の情報】を必ず自然な形で含めてください。`;
 
-  let aiResponse = callGeminiAPI(prompt, apiKey, modelName);
+  let aiResponse = callGeminiAPI(prompt, modelName);
   if (!aiResponse) aiResponse = `AI解析エラー|${rawText}||中`;
   
   const data = aiResponse.split('|');
@@ -380,7 +398,8 @@ function processVoiceMemo(e) {
 }
 
 function turnOnVoiceMemoTrigger() {
-  const functionName = "processVoiceMemo";
+  ensureFormSubmitRouter_();
+  const functionName = Config.FORM_SUBMIT_HANDLER;
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const status = safeTurnOnTrigger(functionName, () => {
     ScriptApp.newTrigger(functionName).forSpreadsheet(ss).onFormSubmit().create();
@@ -396,7 +415,7 @@ function turnOnVoiceMemoTrigger() {
 }
 
 function turnOffVoiceMemoTrigger() {
-  const functionName = "processVoiceMemo";
+  const functionName = Config.FORM_SUBMIT_HANDLER;
   const deleted = safeTurnOffTrigger(functionName);
   
   if (deleted) {

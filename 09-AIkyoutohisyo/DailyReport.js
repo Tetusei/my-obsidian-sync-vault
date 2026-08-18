@@ -18,10 +18,9 @@ function generateDailyReport() {
   const jpnYearStr = fiscalYearMatch ? `令和${fiscalYearMatch[1]}年` : `令和${now.getFullYear() - 2018}年`;
   const fullDateHeader = `${jpnYearStr}${Utilities.formatDate(now, "JST", "MM月dd日")}(${dayOfWeek})`;
 
-  const apiKey = getApiKey();
   const modelName = masterSheet.getRange(Config.MASTER_POS.MODEL_NAME_CELL).getValue() || "gemini-1.5-flash";
-  
-  const reportContent = askGeminiForReport(dashData.schedule, taskText, dashData.memo, apiKey, modelName, fullDateHeader, ss);
+
+  const reportContent = askGeminiForReport(dashData.schedule, taskText, dashData.memo, modelName, fullDateHeader);
   if (!reportContent) { ss.toast("AIでの日報生成に失敗しました。", "エラー"); return; }
 
   const docTitle = `【教頭日誌】${Utilities.formatDate(now, "JST", "yyyy年MM月dd日")}`;
@@ -152,24 +151,56 @@ function sendDailyMorningDigest() {
 }
 
 function doPost(e) {
-  if (typeof e !== 'undefined' && e.postData && e.postData.contents) {
-    const event = JSON.parse(e.postData.contents);
-    if (event.type === 'MESSAGE') {
-      const messageText = event.message.text.trim();
-      const senderName = event.message.sender.displayName;
-      const lines = messageText.split('\n');
-      const title = lines[0];
-      const content = lines.length > 1 ? lines.slice(1).join('\n') : '';
-      
-      const ss = SpreadsheetApp.getActiveSpreadsheet();
-      const todoSheet = ss.getSheetByName(Config.SHEET_NAME_TODO);
-      if (todoSheet) {
-        todoSheet.appendRow([Utilities.formatDate(new Date(), "JST", "yyyy/MM/dd"), 'チャット', title, content, '', '', '', '未着手', '', '', '', `送信者: ${senderName}`]);
-        return ContentService.createTextOutput(JSON.stringify({ "text": `📝 ToDoに登録しました！\n件名: ${title}` })).setMimeType(ContentService.MimeType.JSON);
+  try {
+    const props = PropertiesService.getScriptProperties();
+    const expectedToken = props.getProperty(Config.CHAT_WEBHOOK_TOKEN_PROPERTY);
+    const receivedToken = e && e.parameter ? String(e.parameter.token || '') : '';
+
+    if (!expectedToken || !receivedToken || receivedToken !== expectedToken) {
+      console.warn('認証されていないWebアプリへのPOSTを拒否しました。');
+      return ContentService.createTextOutput('Unauthorized');
+    }
+
+    if (e.postData && e.postData.contents) {
+      const event = JSON.parse(e.postData.contents);
+      if (event.type === 'MESSAGE' && event.message && event.message.text) {
+        const messageText = event.message.text.trim();
+        const senderName = event.message.sender && event.message.sender.displayName
+          ? event.message.sender.displayName
+          : '不明';
+        const lines = messageText.split('\n');
+        const title = lines[0];
+        const content = lines.length > 1 ? lines.slice(1).join('\n') : '';
+
+        const ss = SpreadsheetApp.openById(Config.SPREADSHEET_ID);
+        const todoSheet = ss.getSheetByName(Config.SHEET_NAME_TODO);
+        if (todoSheet) {
+          todoSheet.appendRow([Utilities.formatDate(new Date(), "JST", "yyyy/MM/dd"), 'チャット', title, content, '', '', '', '未着手', '', '', '', `送信者: ${senderName}`]);
+          return ContentService.createTextOutput(JSON.stringify({ "text": `📝 ToDoに登録しました！\n件名: ${title}` })).setMimeType(ContentService.MimeType.JSON);
+        }
       }
     }
+  } catch (err) {
+    console.error('doPost error:', err);
+    return ContentService.createTextOutput('Bad Request');
   }
   return ContentService.createTextOutput("OK");
+}
+
+function admin_setupChatWebhookToken() {
+  const props = PropertiesService.getScriptProperties();
+  let token = props.getProperty(Config.CHAT_WEBHOOK_TOKEN_PROPERTY);
+  if (!token) {
+    token = Utilities.getUuid().replace(/-/g, '');
+    props.setProperty(Config.CHAT_WEBHOOK_TOKEN_PROPERTY, token);
+  }
+
+  const serviceUrl = ScriptApp.getService().getUrl();
+  const securedUrl = serviceUrl ? `${serviceUrl}?token=${encodeURIComponent(token)}` : '';
+  const message = securedUrl
+    ? `Google Chatの接続先URLを次に変更してください。\n\n${securedUrl}`
+    : 'Webアプリを一度デプロイしてから、もう一度実行してください。';
+  SpreadsheetApp.getUi().alert('🔐 チャット受信URLの設定', message, SpreadsheetApp.getUi().ButtonSet.OK);
 }
 
 /* --- ヘルパー関数群 --- */
@@ -203,7 +234,7 @@ function getCompletedTasksToday(ss) {
   return completedTasks.length > 0 ? completedTasks.join('\n') : "本日完了した業務はありません。";
 }
 
-function askGeminiForReport(schedule, tasks, memo, apiKey, modelName, dateHeader, ss) {
+function askGeminiForReport(schedule, tasks, memo, modelName, dateHeader) {
   const prompt = `あなたは学校の教頭を支える秘書AIです。以下のデータから業務報告を作成してください。
 【厳守事項】冒頭や末尾の挨拶は含めない。1行目は「**${dateHeader} 業務報告**」。構成は「**【主な動き（予定）】**」「**【業務実績（タスク）】**」「**【所感】**」の見出しのみ。所感は一般メモを教頭視点でビジネス文章にリライトすること。
 【本日の予定】${schedule} \n【本日完了した業務】${tasks} \n【本日の気づき・一般メモ】${memo}`;
