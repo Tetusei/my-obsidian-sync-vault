@@ -129,6 +129,8 @@ function apiBook(p) {
         code, new Date()
       ]]);
       clearSlotCache_();
+      rebuildOverview();
+      rebuildClassSheets();
       logAction_('予約', slotId, student.cls, student.no, student.name, '');
 
       return {
@@ -166,6 +168,8 @@ function apiCancel(p) {
       var found = findBookingByCode_(student, p.code);
       clearSlotRow_(found.row);
       clearSlotCache_();
+      rebuildOverview();
+      rebuildClassSheets();
       logAction_('取消', String(found.v[COL.SLOT_ID - 1]), student.cls, student.no, student.name, '保護者による取消');
       return { cancelled: true };
     });
@@ -211,6 +215,8 @@ function apiChange(p) {
       sh.getRange(next.row, COL.STATUS, 1, SLOT_LAST_COL - COL.STATUS + 1).setValues(payload);
       clearSlotRow_(old.row);
       clearSlotCache_();
+      rebuildOverview();
+      rebuildClassSheets();
       logAction_('変更', newId, student.cls, student.no, student.name,
         String(old.v[COL.SLOT_ID - 1]) + ' → ' + newId);
 
