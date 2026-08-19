@@ -118,8 +118,9 @@ function styleHeader_(sh, cols) {
 }
 
 /**
- * テスト用ダミー生徒データ10名を「生徒名簿」シートに追加生成する。
- * @return {number} 追加した件数
+ * テスト用ダミー生徒データ10名を「生徒名簿」シートに追加生成し、
+ * 枠が未生成の場合は自動で枠も生成する。
+ * @return {{count:number, slotsCreated:boolean}}
  */
 function generateDummyRoster() {
   setupSystem();
@@ -139,5 +140,19 @@ function generateDummyRoster() {
   
   var lastRow = sh.getLastRow();
   sh.getRange(lastRow + 1, 1, dummyData.length, 4).setValues(dummyData);
-  return dummyData.length;
+
+  var slotsCreated = false;
+  var slotSh = sheet_(SH.SLOTS);
+  if (slotSh.getLastRow() < 2) {
+    try {
+      generateSlots();
+      rebuildOverview();
+      rebuildClassSheets();
+      slotsCreated = true;
+    } catch (e) {
+      console.warn('自動枠生成スキップ:', e);
+    }
+  }
+
+  return { count: dummyData.length, slotsCreated: slotsCreated };
 }

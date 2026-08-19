@@ -245,6 +245,10 @@
   }
 
   function renderSlots(container, days, clickable, onPick) {
+    if (!days || !days.length) {
+      container.innerHTML = '<div class="msg warn">現在選択できる面談枠が登録されていません。<br>（スプレッドシートのメニュー「三者面談 ▸ ② 枠を再生成」を実行して枠を作成してください）</div>';
+      return;
+    }
     container.innerHTML = days.map(function (d, di) {
       return '<div class="day"><h3>' + esc(d.dateLabel) + '</h3><div class="slots">' +
         d.slots.map(function (s, si) {

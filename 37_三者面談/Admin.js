@@ -58,8 +58,14 @@ function menuSetup() {
 function menuGenerateDummyRoster() {
   var ui = SpreadsheetApp.getUi();
   try {
-    var count = generateDummyRoster();
-    ui.alert('ダミー生徒の作成', count + ' 名のダミー生徒を「生徒名簿」シートに追加しました。', ui.ButtonSet.OK);
+    var res = generateDummyRoster();
+    var msg = res.count + ' 名のダミー生徒を「生徒名簿」シートに追加しました。';
+    if (res.slotsCreated) {
+      msg += '\n\n※「枠マスタ」シートが空だったため、面談枠も自動的に再生成しました！';
+    } else {
+      msg += '\n\n※面談枠がまだない場合は、メニューの「② 枠を再生成」を実行してください。';
+    }
+    ui.alert('ダミー生徒の作成', msg, ui.ButtonSet.OK);
   } catch (err) {
     ui.alert('エラー', String(err.message || err), ui.ButtonSet.OK);
   }
