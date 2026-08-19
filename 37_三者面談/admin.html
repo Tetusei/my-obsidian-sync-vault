@@ -1,0 +1,170 @@
+<!-- 担任用 管理画面（?page=admin）。「設定」シートの管理パスコードで入る -->
+<style>
+  :root { --line:#dadce0; --ink:#202124; --sub:#5f6368; --accent:#1a73e8; --okbg:#e6f4ea; --errbg:#fce8e6; --err:#c5221f; }
+  * { box-sizing: border-box; }
+  body { margin:0; padding:0 12px 64px; background:#f6f7f9; color:var(--ink);
+         font-family:"Hiragino Kaku Gothic ProN","Yu Gothic","Meiryo",sans-serif; line-height:1.6; }
+  .wrap { max-width: 960px; margin: 0 auto; }
+  h1 { font-size:1.25rem; margin:20px 0 12px; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:12px; padding:16px; margin-bottom:14px; }
+  label { display:block; font-size:.85rem; color:var(--sub); margin:10px 0 4px; }
+  input, select { width:100%; padding:11px; font-size:1rem; border:1px solid var(--line); border-radius:8px; }
+  button { padding:10px 14px; font-size:.93rem; border-radius:8px; border:1px solid var(--line);
+           background:#fff; cursor:pointer; color:var(--ink); }
+  button.primary { background:var(--accent); border-color:var(--accent); color:#fff; font-weight:700; width:100%; margin-top:14px; padding:13px; }
+  .toolbar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:12px; }
+  .toolbar select { width:auto; min-width:170px; }
+  table { border-collapse:collapse; width:100%; font-size:.88rem; }
+  th, td { border:1px solid var(--line); padding:7px 6px; text-align:center; vertical-align:middle; }
+  th { background:#e8eaed; position:sticky; top:0; }
+  td.open { background:var(--okbg); cursor:pointer; }
+  td.blocked { background:#f1f3f4; color:#9aa0a6; cursor:pointer; }
+  td.booked { background:#fff; cursor:pointer; text-align:left; }
+  td .note { display:block; color:var(--sub); font-size:.78rem; }
+  .scroll { overflow-x:auto; }
+  .msg { padding:11px; border-radius:8px; font-size:.9rem; margin-bottom:12px; white-space:pre-wrap; }
+  .msg.err { background:var(--errbg); color:var(--err); }
+  .msg.ok { background:var(--okbg); color:#188038; }
+  .hide { display:none; }
+  .legend { font-size:.82rem; color:var(--sub); margin-top:8px; }
+  ul.unbooked { margin:8px 0 0; padding-left:1.2em; font-size:.9rem; column-width:170px; }
+  @media print { .toolbar, button, .legend { display:none !important; } body { background:#fff; } }
+</style>
+
+<div class="wrap">
+  <h1 id="title">三者面談 管理画面</h1>
+
+  <div class="card" id="login">
+    <div id="loginErr"></div>
+    <label for="pass">管理パスコード</label>
+    <input id="pass" type="password" autocomplete="off">
+    <button class="primary" onclick="login()">開く</button>
+  </div>
+
+  <div id="main" class="hide">
+    <div id="mainMsg"></div>
+    <div class="card">
+      <div class="toolbar">
+        <select id="day" onchange="loadBoard()"></select>
+        <button onclick="loadBoard()">再読み込み</button>
+        <button onclick="refreshViews()">シートの全体ビューを更新</button>
+        <button onclick="showUnbooked()">未予約の生徒</button>
+        <button onclick="window.print()">印刷</button>
+      </div>
+      <div class="scroll"><table id="board"></table></div>
+      <div class="legend">緑=空き／灰=ブロック／白=予約済。セルをクリックすると、空き⇔ブロックの切替、予約済は取消ができます。</div>
+    </div>
+    <div class="card hide" id="unbookedCard">
+      <strong>未予約の生徒</strong>
+      <div id="unbookedBody"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  var PASS = '';
+  var INFO = null;
+
+  function call(fn) {
+    var args = Array.prototype.slice.call(arguments, 1);
+    return new Promise(function (resolve, reject) {
+      var runner = google.script.run
+        .withSuccessHandler(function (r) { r && r.ok ? resolve(r) : reject(new Error((r && r.error) || '通信に失敗しました。')); })
+        .withFailureHandler(function (e) { reject(new Error(e && e.message ? e.message : '通信に失敗しました。')); });
+      runner[fn].apply(runner, args);
+    });
+  }
+  function el(id) { return document.getElementById(id); }
+  function show(id, on) { el(id).classList.toggle('hide', !on); }
+  function msg(id, text, kind) {
+    el(id).innerHTML = text ? '<div class="msg ' + (kind || 'err') + '">' + esc(text) + '</div>' : '';
+  }
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  el('pass').addEventListener('keydown', function (e) { if (e.key === 'Enter') login(); });
+
+  function login() {
+    PASS = el('pass').value;
+    msg('loginErr', '');
+    call('apiAdminInit', PASS).then(function (r) {
+      INFO = r;
+      el('title').textContent = r.title + '　管理画面' + (r.published ? '' : '（受付停止中）');
+      el('day').innerHTML = '<option value="">すべての日</option>' + r.days.map(function (d) {
+        return '<option value="' + esc(d.key) + '">' + esc(d.label) + '</option>';
+      }).join('');
+      show('login', false); show('main', true);
+      loadBoard();
+    }).catch(function (e) { msg('loginErr', e.message); });
+  }
+
+  function loadBoard() {
+    msg('mainMsg', '');
+    call('apiAdminBoard', PASS, el('day').value).then(function (r) {
+      var html = '<tr><th style="min-width:100px">日付</th><th style="min-width:110px">時間</th>' +
+        r.classes.map(function (c) { return '<th style="min-width:130px">' + esc(c) + '</th>'; }).join('') + '</tr>';
+      r.rows.forEach(function (row) {
+        html += '<tr><td>' + esc(row.dateLabel) + '</td><td>' + esc(row.time) + '</td>';
+        r.classes.forEach(function (c) {
+          var cell = row.cells[c];
+          if (!cell) { html += '<td>—</td>'; return; }
+          var attr = ' data-id="' + esc(cell.slotId) + '" data-status="' + esc(cell.status) + '"' +
+            ' data-name="' + esc(cell.name) + '"';
+          if (cell.status === '予約済') {
+            html += '<td class="booked"' + attr + '>' + esc(cell.no + '. ' + cell.name) +
+              (cell.guardian ? '<span class="note">保護者: ' + esc(cell.guardian) + '</span>' : '') +
+              (cell.note ? '<span class="note">' + esc(cell.note) + '</span>' : '') + '</td>';
+          } else if (cell.status === 'ブロック') {
+            html += '<td class="blocked"' + attr + '>×</td>';
+          } else {
+            html += '<td class="open"' + attr + '>空き</td>';
+          }
+        });
+        html += '</tr>';
+      });
+      el('board').innerHTML = html;
+      Array.prototype.forEach.call(el('board').querySelectorAll('td[data-id]'), function (td) {
+        td.addEventListener('click', function () { onCell(td); });
+      });
+    }).catch(function (e) { msg('mainMsg', e.message); });
+  }
+
+  function onCell(td) {
+    var id = td.dataset.id, status = td.dataset.status;
+    if (status === '予約済') {
+      if (!confirm(td.dataset.name + ' さんの予約を取り消します。よろしいですか？')) return;
+      call('apiAdminCancel', PASS, id)
+        .then(function () { msg('mainMsg', '予約を取り消しました。', 'ok'); loadBoard(); })
+        .catch(function (e) { msg('mainMsg', e.message); });
+      return;
+    }
+    var next = status === 'ブロック' ? '空き' : 'ブロック';
+    call('apiAdminSetStatus', PASS, id, next)
+      .then(function () { loadBoard(); })
+      .catch(function (e) { msg('mainMsg', e.message); });
+  }
+
+  function refreshViews() {
+    call('apiAdminRefreshViews', PASS)
+      .then(function () { msg('mainMsg', 'スプレッドシートの全体ビューとクラス別予約表を更新しました。', 'ok'); })
+      .catch(function (e) { msg('mainMsg', e.message); });
+  }
+
+  function showUnbooked() {
+    call('apiAdminUnbooked', PASS, '').then(function (r) {
+      var byClass = {};
+      r.students.forEach(function (s) { (byClass[s.cls] = byClass[s.cls] || []).push(s.no + '. ' + s.name); });
+      var keys = Object.keys(byClass).sort();
+      el('unbookedBody').innerHTML = keys.length
+        ? keys.map(function (c) {
+            return '<p style="margin:10px 0 2px"><strong>' + esc(c) + '</strong>（' + byClass[c].length + '名）</p>' +
+              '<ul class="unbooked">' + byClass[c].map(function (n) { return '<li>' + esc(n) + '</li>'; }).join('') + '</ul>';
+          }).join('')
+        : '<p>全員の予約が入っています。</p>';
+      show('unbookedCard', true);
+    }).catch(function (e) { msg('mainMsg', e.message); });
+  }
+</script>
