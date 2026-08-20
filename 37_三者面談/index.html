@@ -1,82 +1,87 @@
-<!-- 保護者用 予約画面 -->
-<style>
-  :root {
-    --line: #dadce0;
-    --ink: #202124;
-    --sub: #5f6368;
-    --accent: #1a73e8;
-    --ok: #188038;
-    --okbg: #e6f4ea;
-    --warnbg: #fef7e0;
-    --errbg: #fce8e6;
-    --err: #c5221f;
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0; padding: 0 12px 64px;
-    font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", sans-serif;
-    color: var(--ink); background: #f6f7f9; line-height: 1.7;
-  }
-  .wrap { max-width: 680px; margin: 0 auto; }
-  h1 { font-size: 1.35rem; margin: 20px 0 4px; }
-  .notice { white-space: pre-wrap; color: var(--sub); font-size: .93rem; margin-bottom: 16px; }
-  .card { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 14px; }
-  .card h2 { font-size: 1.02rem; margin: 0 0 12px; }
-  .tabs { display: flex; gap: 8px; margin: 14px 0; }
-  .tabs button {
-    flex: 1; padding: 11px 8px; border: 1px solid var(--line); background: #fff;
-    border-radius: 999px; font-size: .95rem; cursor: pointer; color: var(--sub);
-  }
-  .tabs button.on { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
-  label { display: block; font-size: .87rem; color: var(--sub); margin: 10px 0 4px; }
-  input, select, textarea {
-    width: 100%; padding: 11px; font-size: 1rem; border: 1px solid var(--line);
-    border-radius: 8px; font-family: inherit; background: #fff; color: var(--ink);
-  }
-  textarea { min-height: 72px; resize: vertical; }
-  button.primary {
-    width: 100%; margin-top: 16px; padding: 14px; font-size: 1rem; font-weight: 700;
-    background: var(--accent); color: #fff; border: 0; border-radius: 8px; cursor: pointer;
-  }
-  button.ghost {
-    width: 100%; margin-top: 10px; padding: 12px; font-size: .95rem;
-    background: #fff; color: var(--accent); border: 1px solid var(--line); border-radius: 8px; cursor: pointer;
-  }
-  button.danger { color: var(--err); }
-  button:disabled { opacity: .5; cursor: default; }
-  .day { margin-bottom: 18px; }
-  .day h3 { font-size: .98rem; margin: 0 0 8px; padding-bottom: 5px; border-bottom: 2px solid var(--line); }
-  .slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
-  .slot {
-    padding: 13px 6px; border: 1px solid var(--line); border-radius: 8px; background: var(--okbg);
-    font-size: .95rem; cursor: pointer; text-align: center; color: var(--ink);
-  }
-  .slot.full { background: #f1f3f4; color: #9aa0a6; cursor: default; text-decoration: line-through; }
-  .slot.mine { background: #fff; border: 2px solid var(--accent); color: var(--accent); font-weight: 700; }
-  .slot.sel { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
-  .msg { padding: 12px; border-radius: 8px; font-size: .92rem; margin-bottom: 12px; white-space: pre-wrap; }
-  .msg.err { background: var(--errbg); color: var(--err); }
-  .msg.warn { background: var(--warnbg); }
-  .msg.ok { background: var(--okbg); color: var(--ok); }
-  .code { font-size: 2.4rem; font-weight: 700; letter-spacing: .32em; text-align: center;
-          padding: 14px; background: var(--okbg); border-radius: 10px; margin: 12px 0; }
-  .kv { display: grid; grid-template-columns: 6.5em 1fr; row-gap: 6px; font-size: .95rem; }
-  .kv dt { color: var(--sub); }
-  .kv dd { margin: 0; font-weight: 600; }
-  .hide { display: none; }
-  .spin { text-align: center; color: var(--sub); padding: 20px; font-size: .9rem; }
-  @media print { .tabs, button, .notice { display: none !important; } body { background: #fff; } }
-</style>
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>三者面談 予約</title>
+  <style>
+    :root {
+      --primary: #1a73e8;
+      --primary-hover: #1557b0;
+      --bg: #f8f9fa;
+      --card-bg: #ffffff;
+      --text: #202124;
+      --subtext: #5f6368;
+      --border: #dadce0;
+      --open-bg: #e6f4ea;
+      --open-color: #137333;
+      --open-border: #a8dab5;
+      --mine-bg: #e8f0fe;
+      --mine-color: #1a73e8;
+      --mine-border: #aecbfa;
+      --full-bg: #f1f3f4;
+      --full-color: #70757a;
+      --err-bg: #fce8e6;
+      --err-color: #c5221f;
+      --warn-bg: #fef7e0;
+      --warn-color: #b06000;
+    }
+    * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { margin: 0; background: var(--bg); color: var(--text); padding: 16px 12px 40px; }
+    .wrap { max-width: 580px; margin: 0 auto; }
+    h1 { font-size: 1.4rem; margin: 0 0 4px; text-align: center; }
+    .notice { font-size: .88rem; color: var(--subtext); margin: 0 0 16px; text-align: center; white-space: pre-wrap; }
 
+    .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+    .tab { flex: 1; padding: 10px; text-align: center; background: #fff; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; font-weight: 500; font-size: .95rem; color: var(--subtext); }
+    .tab.on { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+    .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+    .card h2 { font-size: 1.1rem; margin: 0 0 14px; border-bottom: 2px solid var(--primary); padding-bottom: 6px; }
+    label { display: block; font-size: .85rem; font-weight: 600; margin: 12px 0 4px; color: var(--subtext); }
+    input[type=text], input[type=number], select, textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 1rem; background: #fff; }
+    textarea { min-height: 70px; resize: vertical; }
+
+    .help-text { font-size: 0.85rem; color: #5f6368; margin: 6px 0 12px; line-height: 1.4; }
+
+    button.primary { width: 100%; padding: 12px; background: var(--primary); color: #fff; border: none; border-radius: 8px; font-size: 1.05rem; font-weight: 600; cursor: pointer; margin-top: 16px; }
+    button.primary:hover { background: var(--primary-hover); }
+    button.primary:disabled { background: #a0c3ff; cursor: not-allowed; }
+    button.ghost { width: 100%; padding: 10px; background: transparent; color: var(--subtext); border: 1px solid var(--border); border-radius: 8px; font-size: .92rem; cursor: pointer; margin-top: 8px; }
+
+    .msg { padding: 10px 14px; border-radius: 8px; font-size: .9rem; margin-bottom: 12px; line-height: 1.4; white-space: pre-wrap; }
+    .msg.err { background: var(--err-bg); color: var(--err-color); border: 1px solid #f9ab00; }
+    .msg.warn { background: var(--warn-bg); color: var(--warn-color); border: 1px solid #fdd663; }
+    .msg.ok { background: var(--open-bg); color: var(--open-color); border: 1px solid var(--open-border); }
+
+    .grid-day { margin-bottom: 16px; }
+    .grid-day-title { font-weight: 700; font-size: .95rem; margin: 0 0 8px; padding: 4px 8px; background: #e8eaed; border-radius: 4px; }
+    .slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
+    .slot { padding: 10px 6px; text-align: center; border-radius: 6px; border: 1px solid var(--border); font-size: .9rem; }
+    .slot.open { background: var(--open-bg); color: var(--open-color); border-color: var(--open-border); cursor: pointer; font-weight: 600; }
+    .slot.open:hover { background: #ceead6; }
+    .slot.mine { background: var(--mine-bg); color: var(--mine-color); border-color: var(--mine-border); font-weight: 700; }
+    .slot.full { background: var(--full-bg); color: var(--full-color); cursor: not-allowed; }
+
+    .kv { display: grid; grid-template-columns: 100px 1fr; gap: 8px; font-size: .92rem; margin: 12px 0; }
+    .kv dt { color: var(--subtext); font-weight: 600; }
+    .kv dd { margin: 0; word-break: break-all; }
+
+    .code { font-size: 2rem; font-weight: 800; letter-spacing: 6px; text-align: center; color: var(--primary); padding: 12px; background: #e8f0fe; border-radius: 8px; margin: 12px 0; }
+    .hide { display: none !important; }
+  </style>
+</head>
+<body>
 <div class="wrap">
-  <h1 id="title">読み込み中…</h1>
+  <h1 id="title">三者面談 予約</h1>
   <div class="notice" id="notice"></div>
-  <div id="closed" class="msg warn hide"></div>
 
   <div class="tabs">
-    <button id="tabBook" class="on" onclick="showTab('book')">予約する</button>
-    <button id="tabManage" onclick="showTab('manage')">確認・変更・取消</button>
+    <div class="tab on" id="tabBook" onclick="showTab('book')">予約する</div>
+    <div class="tab" id="tabManage" onclick="showTab('manage')">確認・変更・取消</div>
   </div>
+
+  <div id="closed" class="msg warn hide"></div>
 
   <!-- ========== 予約する ========== -->
   <div id="paneBook">
@@ -88,7 +93,8 @@
       <label for="no">出席番号</label>
       <input id="no" type="number" inputmode="numeric" min="1" placeholder="例: 12">
       <label for="name">生徒氏名</label>
-      <input id="name" type="text" placeholder="例: 長崎 太郎">
+      <input id="name" type="text" placeholder="例: 佐藤 勝利">
+      <p class="help-text">※出席番号とお子さまの氏名が名簿と合致しない場合、次の時間選択画面へ進むことができません。</p>
       <button class="primary" id="btnFind" onclick="findSlots()">空いている時間を見る</button>
     </div>
 
@@ -104,7 +110,7 @@
       <div id="confirmErr"></div>
       <dl class="kv" id="confirmKv"></dl>
       <label for="guardian">保護者氏名（任意）</label>
-      <input id="guardian" type="text" placeholder="例: 長崎 花子">
+      <input id="guardian" type="text" placeholder="例: 佐藤 花子">
       <label for="note">担任に伝えたいこと（任意）</label>
       <textarea id="note" placeholder="相談したい内容などがあればご記入ください"></textarea>
       <button class="primary" id="btnBook" onclick="doBook()">この時間で予約する</button>
@@ -133,42 +139,46 @@
       <input id="mName" type="text">
       <label for="mCode">予約コード（4桁）</label>
       <input id="mCode" type="text" inputmode="numeric" maxlength="4" placeholder="0000">
+      <p class="help-text">※出席番号・氏名・予約コードが合致しない場合、表示できません。</p>
       <button class="primary" id="btnLookup" onclick="doLookup()">予約を表示する</button>
     </div>
 
     <div class="card hide" id="mStepView">
       <h2>現在のご予約</h2>
-      <div id="mViewMsg"></div>
+      <div id="mViewErr"></div>
       <dl class="kv" id="mKv"></dl>
-      <button class="ghost" onclick="startChange()">時間を変更する</button>
-      <button class="ghost danger" onclick="doCancel()">予約を取り消す</button>
-      <button class="ghost" onclick="mBack()">閉じる</button>
+      <button class="primary" id="btnStartChange" onclick="startChange()">この予約を変更する</button>
+      <button class="ghost" id="btnCancel" onclick="doCancel()" style="color:var(--err-color);border-color:#f9ab00;">この予約を取り消す</button>
     </div>
 
-    <div class="card hide" id="mStepSlots">
-      <h2>変更先の時間を選ぶ</h2>
-      <div id="mSlotErr"></div>
-      <div id="mSlotList"></div>
-      <button class="ghost" onclick="mBackToView()">やめる</button>
+    <div class="card hide" id="mStepChange">
+      <h2>新しい時間を選ぶ</h2>
+      <div id="mChangeErr"></div>
+      <div id="mChangeSlots"></div>
+      <button class="ghost" onclick="backToMView()">戻る</button>
     </div>
   </div>
 </div>
 
 <script>
-  var CFG = null;
-  var student = null;      // {cls,no,name}
-  var selectedSlot = null; // {slotId,label}
-  var mBooking = null;
-  var mCred = null;
+  var CFG = {};
+  var student = null;
+  var selectedSlotId = null;
 
   function call(fn, arg) {
     return new Promise(function (resolve, reject) {
       google.script.run
-        .withSuccessHandler(function (r) { r && r.ok ? resolve(r) : reject(new Error((r && r.error) || '通信に失敗しました。')); })
-        .withFailureHandler(function (e) { reject(new Error(e && e.message ? e.message : '通信に失敗しました。')); })
-        [fn](arg);
+        .withSuccessHandler(function (r) {
+          if (!r) { reject(new Error('通信エラーが発生しました')); return; }
+          if (!r.ok) { reject(new Error(r.error || 'エラーが発生しました')); return; }
+          resolve(r);
+        })
+        .withFailureHandler(function (err) {
+          reject(new Error(err && err.message ? err.message : String(err)));
+        })[fn](arg);
     });
   }
+
   function el(id) { return document.getElementById(id); }
   function show(id, on) { el(id).classList.toggle('hide', !on); }
   function msg(id, text, kind) {
@@ -179,11 +189,21 @@
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
     });
   }
-  function busy(id, on, label) {
+
+  function busy(id, on, label, msgId, customWaitText) {
     var b = el(id);
+    if (!b) return;
     b.disabled = on;
-    if (on) { b.dataset.label = b.textContent; b.textContent = '処理中…'; }
-    else { b.textContent = label || b.dataset.label || b.textContent; }
+    if (on) {
+      b.dataset.label = b.textContent;
+      b.textContent = '処理中...';
+      if (msgId) {
+        var waitText = customWaitText || '⏳ ただいま照合・処理を行っています。完了まで数秒〜十数秒かかる場合がありますので、そのまま少々お待ちください…';
+        msg(msgId, waitText, 'warn');
+      }
+    } else {
+      b.textContent = label || b.dataset.label || b.textContent;
+    }
   }
 
   call('apiInit').then(function (r) {
@@ -223,9 +243,10 @@
   function findSlots() {
     var p = { cls: el('cls').value, no: el('no').value, name: el('name').value };
     msg('idErr', '');
-    busy('btnFind', true);
+    busy('btnFind', true, null, 'idErr');
     call('apiSlots', p).then(function (r) {
       busy('btnFind', false, '空いている時間を見る');
+      msg('idErr', '');
       student = r.student;
       if (r.existing) {
         msg('slotInfo',
@@ -249,57 +270,59 @@
       container.innerHTML = '<div class="msg warn">現在選択できる面談枠が登録されていません。<br>（スプレッドシートのメニュー「三者面談 ▸ ② 枠を再生成」を実行して枠を作成してください）</div>';
       return;
     }
-    container.innerHTML = days.map(function (d, di) {
-      return '<div class="day"><h3>' + esc(d.dateLabel) + '</h3><div class="slots">' +
-        d.slots.map(function (s, si) {
-          var cls = 'slot' + (s.mine ? ' mine' : (s.available ? '' : ' full'));
-          var attr = (clickable && s.available)
-            ? ' data-id="' + esc(s.slotId) + '" data-label="' + esc(d.dateLabel + ' ' + s.start + '〜' + s.end) + '"'
-            : '';
-          var tail = s.mine ? '<br>ご予約' : (s.available ? '' : '<br>×');
-          return '<div class="' + cls + '" id="s_' + di + '_' + si + '"' + attr + '>' +
-            esc(s.start + '〜' + s.end) + tail + '</div>';
-        }).join('') + '</div></div>';
-    }).join('');
-    if (clickable) {
-      Array.prototype.forEach.call(container.querySelectorAll('.slot[data-id]'), function (node) {
-        node.addEventListener('click', function () {
-          Array.prototype.forEach.call(container.querySelectorAll('.slot'), function (n) { n.classList.remove('sel'); });
-          node.classList.add('sel');
-          onPick({ slotId: node.dataset.id, label: node.dataset.label });
-        });
+    var html = '';
+    days.forEach(function (d) {
+      html += '<div class="grid-day"><div class="grid-day-title">' + esc(d.dateLabel) + '</div><div class="slots">';
+      d.slots.forEach(function (s) {
+        var cls = 'slot ';
+        var text = s.start + '–' + s.end;
+        if (s.mine) { cls += 'mine'; text += '<br>（予約中）'; }
+        else if (s.available) { cls += 'open'; }
+        else { cls += 'full'; text += '<br>（受付終了）'; }
+
+        var onclick = (s.available && clickable) ? 'onclick="' + onPick + '(\'' + s.slotId + '\',\'' + esc(d.dateLabel) + '\',\'' + s.start + '\',\'' + s.end + '\')"' : '';
+        html += '<div class="' + cls + '" ' + onclick + '>' + text + '</div>';
       });
-    }
+      html += '</div></div>';
+    });
+    container.innerHTML = html;
   }
 
-  function pickSlot(s) {
-    selectedSlot = s;
-    el('confirmKv').innerHTML =
-      row('クラス', student.cls) + row('生徒', student.no + '番　' + student.name) + row('日時', s.label);
+  function pickSlot(slotId, dateLabel, start, end) {
+    selectedSlotId = slotId;
     msg('confirmErr', '');
-    show('stepConfirm', true);
-    el('stepConfirm').scrollIntoView({ behavior: 'smooth' });
+    el('confirmKv').innerHTML =
+      '<dt>対象生徒</dt><dd>' + esc(student.cls) + ' ' + student.no + '番 ' + esc(student.name) + '</dd>' +
+      '<dt>希望日時</dt><dd><strong>' + esc(dateLabel) + ' ' + start + '〜' + end + '</strong></dd>' +
+      (teacherOfCurrent() ? '<dt>担任名</dt><dd>' + esc(teacherOfCurrent()) + '</dd>' : '');
+    show('stepSlots', false); show('stepConfirm', true);
+    window.scrollTo(0, 0);
   }
 
-  function row(k, v) { return '<dt>' + esc(k) + '</dt><dd>' + esc(v) + '</dd>'; }
+  function teacherOfCurrent() {
+    return el('slotInfo').textContent.match(/担任:\s*([^）]+)/) ? RegExp.$1 : '';
+  }
 
   function doBook() {
-    if (!selectedSlot) return;
-    msg('confirmErr', '');
-    busy('btnBook', true);
-    call('apiBook', {
+    var p = {
       cls: student.cls, no: student.no, name: student.name,
-      slotId: selectedSlot.slotId,
-      guardian: el('guardian').value, note: el('note').value
-    }).then(function (r) {
+      slotId: selectedSlotId,
+      guardian: el('guardian').value,
+      note: el('note').value
+    };
+    msg('confirmErr', '');
+    busy('btnBook', true, null, 'confirmErr', '⏳ ただいま予約確定処理を行っています。完了まで少々お待ちください…');
+    call('apiBook', p).then(function (r) {
       busy('btnBook', false, 'この時間で予約する');
+      msg('confirmErr', '');
       var b = r.booking;
       el('doneKv').innerHTML =
-        row('クラス', b.cls + (b.teacher ? '（担任: ' + b.teacher + '）' : '')) +
-        row('生徒', b.name) +
-        row('日時', b.dateLabel + ' ' + b.start + '〜' + b.end);
+        '<dt>保護者名</dt><dd>' + esc(el('guardian').value || '未入力') + '</dd>' +
+        '<dt>対象生徒</dt><dd>' + esc(b.cls) + ' ' + student.no + '番 ' + esc(b.name) + '</dd>' +
+        '<dt>日時</dt><dd><strong>' + esc(b.dateLabel) + ' ' + b.start + '〜' + b.end + '</strong></dd>' +
+        (b.teacher ? '<dt>担任</dt><dd>' + esc(b.teacher) + '</dd>' : '');
       el('doneCode').textContent = r.code;
-      show('stepSlots', false); show('stepConfirm', false); show('stepDone', true);
+      show('stepConfirm', false); show('stepDone', true);
       window.scrollTo(0, 0);
     }).catch(function (e) {
       busy('btnBook', false, 'この時間で予約する');
@@ -307,72 +330,95 @@
     });
   }
 
-  function backToId() {
-    show('stepSlots', false); show('stepConfirm', false); show('stepId', true);
-  }
-  function backToSlots() {
-    selectedSlot = null;
-    show('stepConfirm', false);
-    el('stepSlots').scrollIntoView({ behavior: 'smooth' });
-  }
+  function backToId() { show('stepSlots', false); show('stepId', true); }
+  function backToSlots() { show('stepConfirm', false); show('stepSlots', true); }
 
   /* ---------- 確認・変更・取消 ---------- */
 
+  var currentBooking = null;
+
   function doLookup() {
-    mCred = { cls: el('mCls').value, no: el('mNo').value, name: el('mName').value, code: el('mCode').value };
+    var p = {
+      cls: el('mCls').value,
+      no: el('mNo').value,
+      name: el('mName').value,
+      code: el('mCode').value
+    };
     msg('mErr', '');
-    busy('btnLookup', true);
-    call('apiLookup', mCred).then(function (r) {
+    busy('btnLookup', true, null, 'mErr');
+    call('apiLookup', p).then(function (r) {
       busy('btnLookup', false, '予約を表示する');
-      renderBooking(r.booking);
-      show('mStepId', false); show('mStepView', true); show('mStepSlots', false);
+      msg('mErr', '');
+      currentBooking = r.booking;
+      renderBookingView(r.booking);
+      show('mStepId', false); show('mStepView', true); show('mStepChange', false);
     }).catch(function (e) {
       busy('btnLookup', false, '予約を表示する');
       msg('mErr', e.message);
     });
   }
 
-  function renderBooking(b) {
-    mBooking = b;
+  function renderBookingView(b) {
     el('mKv').innerHTML =
-      row('クラス', b.cls + (b.teacher ? '（担任: ' + b.teacher + '）' : '')) +
-      row('生徒', b.name) +
-      row('日時', b.dateLabel + ' ' + b.start + '〜' + b.end) +
-      (b.guardian ? row('保護者', b.guardian) : '') +
-      (b.note ? row('連絡事項', b.note) : '');
-  }
-
-  function startChange() {
-    msg('mSlotErr', '');
-    call('apiSlots', mCred).then(function (r) {
-      renderSlots(el('mSlotList'), r.days, true, function (s) {
-        if (!confirm(s.label + ' に変更します。よろしいですか？')) return;
-        call('apiChange', {
-          cls: mCred.cls, no: mCred.no, name: mCred.name, code: mCred.code, slotId: s.slotId
-        }).then(function (rr) {
-          renderBooking(rr.booking);
-          msg('mViewMsg', '予約の時間を変更しました。予約コードは変わりません。', 'ok');
-          show('mStepSlots', false); show('mStepView', true);
-          window.scrollTo(0, 0);
-        }).catch(function (e) { msg('mSlotErr', e.message); });
-      });
-      show('mStepView', false); show('mStepSlots', true);
-    }).catch(function (e) { msg('mViewMsg', e.message); });
+      '<dt>対象生徒</dt><dd>' + esc(b.cls) + ' ' + b.no + '番 ' + esc(b.name) + '</dd>' +
+      '<dt>日時</dt><dd><strong>' + esc(b.dateLabel) + ' ' + b.start + '〜' + b.end + '</strong></dd>' +
+      '<dt>保護者名</dt><dd>' + esc(b.guardian || '未入力') + '</dd>' +
+      '<dt>連絡事項</dt><dd>' + esc(b.note || 'なし') + '</dd>';
   }
 
   function doCancel() {
-    if (!confirm('予約を取り消します。よろしいですか？\n取り消すと、この時間は他の方が予約できるようになります。')) return;
-    call('apiCancel', mCred).then(function () {
-      el('mKv').innerHTML = '';
-      msg('mViewMsg', '予約を取り消しました。改めて予約する場合は「予約する」タブからお願いします。', 'ok');
-    }).catch(function (e) { msg('mViewMsg', e.message); });
+    if (!confirm('この予約を取り消します。よろしいですか？')) return;
+    var p = {
+      cls: el('mCls').value, no: el('mNo').value, name: el('mName').value, code: el('mCode').value
+    };
+    msg('mViewErr', '');
+    busy('btnCancel', true, null, 'mViewErr', '⏳ 取り消し処理を行っています。少々お待ちください…');
+    call('apiCancel', p).then(function () {
+      busy('btnCancel', false, 'この予約を取り消す');
+      alert('予約を取り消しました。');
+      show('mStepView', false); show('mStepId', true);
+      el('mCode').value = '';
+    }).catch(function (e) {
+      busy('btnCancel', false, 'この予約を取り消す');
+      msg('mViewErr', e.message);
+    });
   }
 
-  function mBack() {
-    msg('mViewMsg', '');
-    show('mStepView', false); show('mStepSlots', false); show('mStepId', true);
+  function startChange() {
+    var p = { cls: el('mCls').value, no: el('mNo').value, name: el('mName').value };
+    msg('mViewErr', '');
+    busy('btnStartChange', true, null, 'mViewErr');
+    call('apiSlots', p).then(function (r) {
+      busy('btnStartChange', false, 'この予約を変更する');
+      renderSlots(el('mChangeSlots'), r.days, true, pickChangeSlot);
+      show('mStepView', false); show('mStepChange', true);
+    }).catch(function (e) {
+      busy('btnStartChange', false, 'この予約を変更する');
+      msg('mViewErr', e.message);
+    });
   }
-  function mBackToView() {
-    show('mStepSlots', false); show('mStepView', true);
+
+  function pickChangeSlot(newSlotId, dateLabel, start, end) {
+    if (!confirm('新しい日時に変更します。\n' + dateLabel + ' ' + start + '〜' + end + '\nよろしいですか？')) return;
+    var p = {
+      cls: el('mCls').value, no: el('mNo').value, name: el('mName').value, code: el('mCode').value,
+      slotId: newSlotId
+    };
+    msg('mChangeErr', '');
+    busy('mStepChange', true, null, 'mChangeErr', '⏳ 変更処理を行っています。少々お待ちください…');
+    call('apiChange', p).then(function (r) {
+      busy('mStepChange', false, '新しい時間を選ぶ');
+      alert('予約を変更しました。');
+      currentBooking = r.booking;
+      renderBookingView(r.booking);
+      show('mStepChange', false); show('mStepView', true);
+    }).catch(function (e) {
+      busy('mStepChange', false, '新しい時間を選ぶ');
+      msg('mChangeErr', e.message);
+    });
   }
+
+  function backToMView() { show('mStepChange', false); show('mStepView', true); }
 </script>
+</body>
+</html>
