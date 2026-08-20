@@ -15,6 +15,9 @@ function buildMenu_() {
     .addSeparator()
     .addItem('全体ビュー・クラス別予約表を更新', 'menuRefreshViews')
     .addSeparator()
+    .addItem('📄 クラス別PDFを一括作成 (全クラス)', 'menuExportAllPdf')
+    .addItem('📄 現在のクラスのPDFを作成', 'menuExportCurrentPdf')
+    .addSeparator()
     .addItem('選択した枠をブロック（面談を入れない）', 'menuBlock')
     .addItem('選択した枠のブロックを解除', 'menuUnblock')
     .addItem('選択した枠の予約を取り消す', 'menuCancel')
@@ -91,6 +94,35 @@ function menuRefreshViews() {
   rebuildClassSheets();
   hideInternalSheets();
   ss_().toast('全体ビューとクラス別予約表を更新し、システムシートを整理しました。', '三者面談', 5);
+}
+
+function menuExportAllPdf() {
+  var ui = SpreadsheetApp.getUi();
+  ss_().toast('全クラスのPDFを作成しています。十数秒お待ちください…', '三者面談 PDF出力', 15);
+  try {
+    var res = exportAllClassesPdf();
+    ui.alert('PDF作成完了',
+      '全 ' + res.count + ' クラス分のPDFを「' + res.folderName + '」フォルダに作成しました。\n\n' +
+      'Google ドライブのフォルダをご確認ください:\n' + res.folderUrl,
+      ui.ButtonSet.OK);
+  } catch (err) {
+    ui.alert('PDF作成エラー', String(err.message || err), ui.ButtonSet.OK);
+  }
+}
+
+function menuExportCurrentPdf() {
+  var ui = SpreadsheetApp.getUi();
+  ss_().toast('PDFを作成しています。少々お待ちください…', '三者面談 PDF出力', 10);
+  try {
+    var res = exportCurrentClassPdf();
+    ui.alert('PDF作成完了',
+      '【' + res.className + '】のPDFを作成しました。\n\n' +
+      'ファイル名: ' + res.fileName + '\n\n' +
+      'Google ドライブで確認:\n' + res.fileUrl,
+      ui.ButtonSet.OK);
+  } catch (err) {
+    ui.alert('PDF作成エラー', String(err.message || err), ui.ButtonSet.OK);
+  }
 }
 
 function menuBlock() { setStatusForSelection_(STATUS.BLOCKED); }
