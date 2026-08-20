@@ -251,23 +251,46 @@
     busy('btnFind', true, null, 'idErr');
     call('apiSlots', p).then(function (r) {
       busy('btnFind', false, '空いている時間を見る');
-      msg('idErr', '');
       student = r.student;
+
+      // ★ すでに予約が入っている場合は、時間選択画面（表）に進ませず入力画面で案内
       if (r.existing) {
-        msg('slotInfo',
-          r.student.name + 'さんは、すでに ' + r.existing.dateLabel + ' ' + r.existing.start +
-          '〜' + r.existing.end + ' で予約が入っています。\n時間を変えるときは「確認・変更・取消」タブから手続きしてください。', 'warn');
-      } else {
-        msg('slotInfo', r.student.cls + '　' + r.student.no + '番　' + r.student.name + 'さん' +
-          (r.teacher ? '（担任: ' + r.teacher + '）' : '') + '\n緑色の時間から1つ選んでください。', 'ok');
+        var warnHtml = '<div class="msg warn">' +
+          '<strong>【すでにご予約済みです】</strong><br>' +
+          esc(r.student.name) + ' さんは、すでに以下の日時で予約が入っています。<br><br>' +
+          '📅 <strong>' + esc(r.existing.dateLabel) + ' ' + esc(r.existing.start) + '〜' + esc(r.existing.end) + '</strong><br><br>' +
+          '日時の確認や変更・取消をされる場合は、下のボタンを押すか、上部の「確認・変更・取消」タブからお手続きください。' +
+          '<button type="button" class="primary" style="margin-top:12px;padding:10px;font-size:0.95rem;" onclick="goToManageTab()">' +
+          '予約の確認・変更・取消へ進む ➔</button>' +
+          '</div>';
+        el('idErr').innerHTML = warnHtml;
+        show('stepId', true); show('stepSlots', false); show('stepConfirm', false); show('stepDone', false);
+        window.scrollTo(0, 0);
+        return;
       }
-      renderSlots(el('slotList'), r.days, !r.existing, 'pickSlot');
+
+      msg('idErr', '');
+      msg('slotInfo', r.student.cls + '　' + r.student.no + '番　' + r.student.name + 'さん' +
+        (r.teacher ? '（担任: ' + r.teacher + '）' : '') + '\n緑色の時間から1つ選んでください。', 'ok');
+
+      renderSlots(el('slotList'), r.days, true, 'pickSlot');
       show('stepId', false); show('stepSlots', true); show('stepConfirm', false); show('stepDone', false);
       window.scrollTo(0, 0);
     }).catch(function (e) {
       busy('btnFind', false, '空いている時間を見る');
       msg('idErr', e.message);
     });
+  }
+
+  function goToManageTab() {
+    if (student) {
+      el('mCls').value = student.cls;
+      el('mNo').value = student.no;
+      el('mName').value = student.name;
+    }
+    showTab('manage');
+    el('mCode').focus();
+    window.scrollTo(0, 0);
   }
 
   function renderSlots(container, days, clickable, fnNameStr) {

@@ -7,7 +7,7 @@
  */
 
 /** Antigravity 管理バージョン */
-var VERSION = '3.4.1';
+var VERSION = '3.5.0';
 
 /** 対象スプレッドシート。バインドでも単体スクリプトでも動くよう ID を明示する。 */
 var SPREADSHEET_ID = '1nvbdoNcZvwCrPi48GdxG_Q6eveCBDvk9s7HF4V10BM0';
