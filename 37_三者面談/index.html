@@ -48,6 +48,8 @@
     button.primary:hover { background: var(--primary-hover); }
     button.primary:disabled { background: #a0c3ff; cursor: not-allowed; }
     button.ghost { width: 100%; padding: 10px; background: transparent; color: var(--subtext); border: 1px solid var(--border); border-radius: 8px; font-size: .92rem; cursor: pointer; margin-top: 8px; }
+    button.cal-btn { width: 100%; padding: 11px; background: #ffffff; color: #1a73e8; border: 2px solid #1a73e8; border-radius: 8px; font-size: .98rem; font-weight: 600; cursor: pointer; margin-top: 12px; display: flex; align-items: center; justify-content: center; gap: 6px; }
+    button.cal-btn:hover { background: #e8f0fe; }
 
     .msg { padding: 10px 14px; border-radius: 8px; font-size: .9rem; margin-bottom: 12px; line-height: 1.4; white-space: pre-wrap; }
     .msg.err { background: var(--err-bg); color: var(--err-color); border: 1px solid #f9ab00; }
@@ -122,6 +124,7 @@
       <dl class="kv" id="doneKv"></dl>
       <p style="margin:16px 0 0;font-size:.92rem;">変更・取消に必要な<strong>予約コード</strong>です。必ず控えてください。</p>
       <div class="code" id="doneCode"></div>
+      <button class="cal-btn" id="btnAddToCalendar" onclick="addToGoogleCalendar()">📅 Googleカレンダーに登録する</button>
       <button class="ghost" onclick="window.print()">この画面を印刷する</button>
     </div>
   </div>
@@ -147,6 +150,7 @@
       <h2>現在のご予約</h2>
       <div id="mViewErr"></div>
       <dl class="kv" id="mKv"></dl>
+      <button class="cal-btn" id="btnMAddToCalendar" onclick="addCurrentToCalendar()">📅 Googleカレンダーに登録する</button>
       <button class="primary" id="btnStartChange" onclick="startChange()">この予約を変更する</button>
       <button class="ghost" id="btnCancel" onclick="doCancel()" style="color:var(--err-color);border-color:#f9ab00;">この予約を取り消す</button>
     </div>
@@ -164,6 +168,7 @@
   var CFG = {};
   var student = null;
   var selectedSlotId = null;
+  var lastBookingData = null;
 
   function call(fn, arg) {
     return new Promise(function (resolve, reject) {
@@ -321,6 +326,16 @@
       busy('btnBook', false, 'この時間で予約する');
       msg('confirmErr', '');
       var b = r.booking;
+      lastBookingData = {
+        cls: b.cls,
+        no: student.no,
+        name: b.name,
+        dateLabel: b.dateLabel,
+        start: b.start,
+        end: b.end,
+        teacher: b.teacher,
+        code: r.code
+      };
       el('doneKv').innerHTML =
         '<dt>保護者名</dt><dd>' + esc(el('guardian').value || '未入力') + '</dd>' +
         '<dt>対象生徒</dt><dd>' + esc(b.cls) + ' ' + student.no + '番 ' + esc(b.name) + '</dd>' +
@@ -355,6 +370,7 @@
       busy('btnLookup', false, '予約を表示する');
       msg('mErr', '');
       currentBooking = r.booking;
+      currentBooking.code = p.code;
       renderBookingView(r.booking);
       show('mStepId', false); show('mStepView', true); show('mStepChange', false);
     }).catch(function (e) {
@@ -415,6 +431,7 @@
       busy('mStepChange', false, '新しい時間を選ぶ');
       alert('予約を変更しました。');
       currentBooking = r.booking;
+      currentBooking.code = p.code;
       renderBookingView(r.booking);
       show('mStepChange', false); show('mStepView', true);
     }).catch(function (e) {
@@ -424,6 +441,54 @@
   }
 
   function backToMView() { show('mStepChange', false); show('mStepView', true); }
+
+  /* ---------- Googleカレンダー登録 ---------- */
+
+  function addToGoogleCalendar() {
+    if (!lastBookingData) return;
+    openGoogleCalendarUrl_(lastBookingData);
+  }
+
+  function addCurrentToCalendar() {
+    if (!currentBooking) return;
+    openGoogleCalendarUrl_(currentBooking);
+  }
+
+  function openGoogleCalendarUrl_(b) {
+    var title = '三者面談（' + b.cls + ' ' + (b.no ? b.no + '番 ' : '') + b.name + '）';
+    
+    // 2026年基準の日付解析（例: "10月29日(木)"）
+    var m = String(b.dateLabel).match(/(\d{1,2})月(\d{1,2})日/);
+    if (!m) return;
+    var year = 2026;
+    var month = ('0' + m[1]).slice(-2);
+    var day = ('0' + m[2]).slice(-2);
+
+    var sTime = String(b.start).replace(/[:時]/g, '');
+    var eTime = String(b.end).replace(/[:時]/g, '');
+    if (sTime.length === 4) sTime += '00';
+    if (eTime.length === 4) eTime += '00';
+
+    // JSTの日時フォーマット: YYYYMMDDTHHMMSS
+    var startIso = year + month + day + 'T' + sTime;
+    var endIso = year + month + day + 'T' + eTime;
+
+    var details = '【三者面談 予約内容】\n' +
+      '■ 生徒: ' + b.cls + ' ' + (b.no ? b.no + '番 ' : '') + b.name + '\n' +
+      '■ 日時: ' + b.dateLabel + ' ' + b.start + '〜' + b.end + '\n' +
+      (b.teacher ? '■ 担任: ' + b.teacher + '\n' : '') +
+      (b.code ? '■ 予約コード: ' + b.code + '（変更・取消時に必要です）\n' : '') +
+      '■ 持ち物: 上履き、筆記用具\n\n' +
+      '※日時の確認・変更・取消は予約受付画面から行えます。';
+
+    var calUrl = 'https://calendar.google.com/calendar/render?action=TEMPLATE' +
+      '&text=' + encodeURIComponent(title) +
+      '&dates=' + startIso + '/' + endIso +
+      '&ctz=Asia/Tokyo' +
+      '&details=' + encodeURIComponent(details);
+
+    window.open(calUrl, '_blank');
+  }
 </script>
 </body>
 </html>

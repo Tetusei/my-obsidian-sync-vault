@@ -44,8 +44,6 @@ function apiInit() {
 function apiSlots(p) {
   return safe_(function () {
     var cfg = getConfig();
-    // 受付期間外は名簿の照合自体を行わない（名簿を探る手がかりを残さない）。
-    // 予約済みの内容は「確認・変更・取消」から予約コードで確認できる。
     var win = bookingWindow_(cfg);
     if (!win.ok) throw new Error(win.message);
     var student = verifyStudent_(p, cfg);
@@ -123,15 +121,20 @@ function apiBook(p) {
       }
 
       var code = makeCode_();
+      var guardian = String(p.guardian || '').trim();
+      var note = String(p.note || '').trim();
+
       sh.getRange(target.row, COL.STATUS, 1, SLOT_LAST_COL - COL.STATUS + 1).setValues([[
         STATUS.BOOKED, student.no, student.name,
-        String(p.guardian || '').trim(), String(p.note || '').trim(),
-        code, new Date()
+        guardian, note, code, new Date()
       ]]);
       clearSlotCache_();
       rebuildOverview();
       rebuildClassSheets();
       logAction_('予約', slotId, student.cls, student.no, student.name, '');
+
+      // 担任へのメール通知
+      sendTeacherNotification_('予約', student, target, guardian, note, code);
 
       return {
         code: code,
@@ -171,6 +174,10 @@ function apiCancel(p) {
       rebuildOverview();
       rebuildClassSheets();
       logAction_('取消', String(found.v[COL.SLOT_ID - 1]), student.cls, student.no, student.name, '保護者による取消');
+
+      // 担任へのメール通知
+      sendTeacherNotification_('取消', student, found, '', '', p.code);
+
       return { cancelled: true };
     });
   });
@@ -207,10 +214,13 @@ function apiChange(p) {
         throw new Error('申し訳ありません、その時間はちょうど埋まりました。別の時間を選んでください。');
       }
 
+      var guardian = String(old.v[COL.GUARDIAN - 1] || '');
+      var note = String(old.v[COL.NOTE - 1] || '');
+      var code = String(old.v[COL.CODE - 1]);
+
       var payload = [[
         STATUS.BOOKED, student.no, student.name,
-        String(old.v[COL.GUARDIAN - 1] || ''), String(old.v[COL.NOTE - 1] || ''),
-        String(old.v[COL.CODE - 1]), new Date()
+        guardian, note, code, new Date()
       ]];
       sh.getRange(next.row, COL.STATUS, 1, SLOT_LAST_COL - COL.STATUS + 1).setValues(payload);
       clearSlotRow_(old.row);
@@ -220,16 +230,53 @@ function apiChange(p) {
       logAction_('変更', newId, student.cls, student.no, student.name,
         String(old.v[COL.SLOT_ID - 1]) + ' → ' + newId);
 
+      // 担任へのメール通知
+      sendTeacherNotification_('変更', student, next, guardian, note, code);
+
       return { booking: bookingView_(next.v, student) };
     });
   });
 }
 
-/* ------------------------------------------------------------------ */
-/* 内部処理                                                            */
-/* ------------------------------------------------------------------ */
+/* ---------------- 担任メール通知 ---------------- */
 
-/** 例外を {ok:false, error:...} に包む。google.script.run の失敗ハンドラを使わずに済ませる。 */
+function sendTeacherNotification_(action, student, targetSlot, guardian, note, code) {
+  var cfg = getConfig();
+  if (!cfg.notifyTeacher) return;
+  var classes = getClasses();
+  var teacherEmail = '';
+  var teacherName = '';
+  for (var i = 0; i < classes.length; i++) {
+    if (classes[i].name === student.cls) {
+      teacherEmail = classes[i].email;
+      teacherName = classes[i].teacher;
+    }
+  }
+  if (!teacherEmail) return;
+
+  var dateStr = targetSlot.v ? dateLabel_(targetSlot.v[COL.DATE - 1]) + ' ' + targetSlot.v[COL.START - 1] + '〜' + targetSlot.v[COL.END - 1] : '';
+  var subject = '【三者面談通知】' + student.cls + ' ' + student.no + '番 ' + student.name + ' 様の' + action;
+  var body = (teacherName ? teacherName + ' 先生\n\n' : '') +
+    '三者面談の' + action + 'がありましたのでお知らせいたします。\n\n' +
+    '----------------------------------------\n' +
+    '■ 対象生徒: ' + student.cls + ' ' + student.no + '番 ' + student.name + '\n' +
+    (dateStr ? '■ 面談日時: ' + dateStr + '\n' : '') +
+    (guardian ? '■ 保護者名: ' + guardian + '\n' : '') +
+    (note ? '■ 連絡事項: ' + note + '\n' : '') +
+    (code ? '■ 予約コード: ' + code + '\n' : '') +
+    '----------------------------------------\n\n' +
+    '※スプレッドシートの「予約表_' + student.cls + '」シートにも自動反映されています。';
+
+  try {
+    MailApp.sendEmail(teacherEmail, subject, body);
+  } catch (err) {
+    console.warn('担任メール通知スキップ:', err);
+  }
+}
+
+/* ---------------- 内部処理 ---------------- */
+
+/** 例外を {ok:false, error:...} に包む */
 function safe_(fn) {
   try {
     var data = fn();
@@ -253,7 +300,7 @@ function withLock_(fn) {
   }
 }
 
-/** 名簿と照合する。合わなければ例外。保護者へは親切な案内文を出す。 */
+/** 名簿と照合する */
 function verifyStudent_(p, cfg) {
   var cls = String((p && p.cls) || '').trim();
   var no = Number((p && p.no) || 0);

@@ -7,7 +7,7 @@
  */
 
 /** Antigravity 管理バージョン */
-var VERSION = '2.5.0';
+var VERSION = '3.0.0';
 
 /** 対象スプレッドシート。バインドでも単体スクリプトでも動くよう ID を明示する。 */
 var SPREADSHEET_ID = '1nvbdoNcZvwCrPi48GdxG_Q6eveCBDvk9s7HF4V10BM0';
@@ -21,6 +21,10 @@ var SH = {
   OVERVIEW: '全体ビュー',
   LOG: '予約ログ'
 };
+
+/** フォルダ名定数 */
+var BACKUP_FOLDER_NAME = '📦_バックアップ保存箱';
+var PDF_FOLDER_NAME = '📄_三者面談PDF';
 
 /** 枠マスタの列番号(1始まり) */
 var COL = {
@@ -140,6 +144,7 @@ function getConfig() {
     maxPerStudent: Number(raw['1家庭あたり予約可能数'] || 1),
     checkName: raw['氏名照合'] === '' || raw['氏名照合'] == null ? true : truthy_(raw['氏名照合']),
     published: truthy_(raw['公開']),
+    notifyTeacher: truthy_(raw['担任メール通知']),
     adminPasscode: String(raw['管理パスコード'] || '')
   };
 }

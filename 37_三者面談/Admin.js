@@ -15,8 +15,13 @@ function buildMenu_() {
     .addSeparator()
     .addItem('全体ビュー・クラス別予約表を更新', 'menuRefreshViews')
     .addSeparator()
-    .addItem('📄 クラス別PDFを一括作成 (全クラス)', 'menuExportAllPdf')
-    .addItem('📄 現在のクラスのPDFを作成', 'menuExportCurrentPdf')
+    .addItem('📄 クラス別予約表PDFを作成 (全クラス)', 'menuExportAllPdf')
+    .addItem('📄 現在のクラスの予約表PDFを作成', 'menuExportCurrentPdf')
+    .addSeparator()
+    .addItem('📝 当日面談記録シートを作成 (全クラス)', 'menuExportAllMeetingNotes')
+    .addItem('📝 現在のクラスの当日面談記録シートを作成', 'menuExportCurrentMeetingNotes')
+    .addSeparator()
+    .addItem('📦 バックアップを作成 (保存箱へ保存)', 'menuBackup')
     .addSeparator()
     .addItem('選択した枠をブロック（面談を入れない）', 'menuBlock')
     .addItem('選択した枠のブロックを解除', 'menuUnblock')
@@ -98,10 +103,10 @@ function menuRefreshViews() {
 
 function menuExportAllPdf() {
   var ui = SpreadsheetApp.getUi();
-  ss_().toast('全クラスのPDFを作成しています。十数秒お待ちください…', '三者面談 PDF出力', 15);
+  ss_().toast('全クラスの予約表PDFを作成しています。十数秒お待ちください…', '三者面談 PDF出力', 15);
   try {
     var res = exportAllClassesPdf();
-    showAllPdfCompleteDialog_(res);
+    showAllPdfCompleteDialog_(res, false);
   } catch (err) {
     ui.alert('PDF作成エラー', String(err.message || err), ui.ButtonSet.OK);
   }
@@ -109,12 +114,45 @@ function menuExportAllPdf() {
 
 function menuExportCurrentPdf() {
   var ui = SpreadsheetApp.getUi();
-  ss_().toast('PDFを作成しています。少々お待ちください…', '三者面談 PDF出力', 10);
+  ss_().toast('予約表PDFを作成しています。少々お待ちください…', '三者面談 PDF出力', 10);
   try {
     var res = exportCurrentClassPdf();
-    showPdfCompleteDialog_(res);
+    showPdfCompleteDialog_(res, false);
   } catch (err) {
     ui.alert('PDF作成エラー', String(err.message || err), ui.ButtonSet.OK);
+  }
+}
+
+function menuExportAllMeetingNotes() {
+  var ui = SpreadsheetApp.getUi();
+  ss_().toast('全クラスの当日面談記録シートを作成しています。十数秒お待ちください…', '三者面談 面談シート出力', 15);
+  try {
+    var res = exportAllMeetingNotesPdf();
+    showAllPdfCompleteDialog_(res, true);
+  } catch (err) {
+    ui.alert('面談シート作成エラー', String(err.message || err), ui.ButtonSet.OK);
+  }
+}
+
+function menuExportCurrentMeetingNotes() {
+  var ui = SpreadsheetApp.getUi();
+  ss_().toast('当日面談記録シートを作成しています。少々お待ちください…', '三者面談 面談シート出力', 10);
+  try {
+    var res = exportCurrentMeetingNotesPdf();
+    showPdfCompleteDialog_(res, true);
+  } catch (err) {
+    ui.alert('面談シート作成エラー', String(err.message || err), ui.ButtonSet.OK);
+  }
+}
+
+function menuBackup() {
+  var ui = SpreadsheetApp.getUi();
+  ss_().toast('バックアップを作成しています…', '三者面談 バックアップ', 5);
+  try {
+    var res = createManualBackup();
+    showBackupCompleteDialog_(res);
+  } catch (err) {
+    ui.alert('バックアップエラー', String(err.message || err), ui.ButtonSet.OK);
   }
 }
 

@@ -116,7 +116,9 @@ function readSlots_() {
 
 /**
  * 全体ビューを作り直す。
- * 行 = 日付×時間、列 = クラス。空きが一目で分かる。
+ * 1行目: 学年・各クラス予約進捗サマリーバナー
+ * 2行目: 見出しヘッダー
+ * 3行目〜: 行 = 日付×時間、列 = クラス。空きが一目で分かる。
  */
 function rebuildOverview() {
   var cfg = getConfig();
@@ -124,6 +126,37 @@ function rebuildOverview() {
   var days = getDays();
   var times = daySlotTimes_(cfg);
   var slots = readSlots_();
+  var roster = getRoster();
+
+  // 進捗率の計算
+  var totalStudents = roster.length;
+  var bookedCount = 0;
+  var classStats = {};
+  for (var c = 0; c < classes.length; c++) {
+    classStats[classes[c].name] = { total: 0, booked: 0 };
+  }
+  for (var r = 0; r < roster.length; r++) {
+    if (classStats[roster[r].cls]) classStats[roster[r].cls].total++;
+  }
+  for (var s = 0; s < slots.length; s++) {
+    var sv = slots[s].v;
+    if (String(sv[COL.STATUS - 1]) === STATUS.BOOKED) {
+      bookedCount++;
+      var cName = String(sv[COL.CLASS - 1]);
+      if (classStats[cName]) classStats[cName].booked++;
+    }
+  }
+
+  var totalRate = totalStudents ? Math.round((bookedCount / totalStudents) * 100) : 0;
+  var summaryText = '📊 学年予約状況: ' + totalStudents + '名中 ' + bookedCount + '名予約済 (' + totalRate + '%) ｜ ';
+  var classSummaries = [];
+  for (var cc = 0; cc < classes.length; cc++) {
+    var cN = classes[cc].name;
+    var st = classStats[cN] || { total: 0, booked: 0 };
+    var cRate = st.total ? Math.round((st.booked / st.total) * 100) : 0;
+    classSummaries.push(cN + ': ' + st.booked + '/' + st.total + '名 (' + cRate + '%)');
+  }
+  summaryText += classSummaries.join(' ｜ ');
 
   var byId = {};
   for (var i = 0; i < slots.length; i++) byId[slots[i].v[COL.SLOT_ID - 1]] = slots[i].v;
@@ -144,11 +177,11 @@ function rebuildOverview() {
         if (!v) {
           line.push('—'); lineColor.push('#f8f9fa'); continue;
         }
-        var st = String(v[COL.STATUS - 1]);
-        if (st === STATUS.BOOKED) {
+        var statusStr = String(v[COL.STATUS - 1]);
+        if (statusStr === STATUS.BOOKED) {
           line.push(v[COL.NUMBER - 1] + '. ' + v[COL.STUDENT - 1]);
           lineColor.push('#ffffff');
-        } else if (st === STATUS.BLOCKED) {
+        } else if (statusStr === STATUS.BLOCKED) {
           line.push('×');
           lineColor.push('#f1f3f4');
         } else {
@@ -166,22 +199,41 @@ function rebuildOverview() {
 
   var sh = ss_().getSheetByName(SH.OVERVIEW) || ss_().insertSheet(SH.OVERVIEW);
   sh.clear();
-  sh.getRange(1, 1, 1, header.length).setValues([header]);
-  styleHeader_(sh, header.length);
-  sh.getRange(1, 1, 1, header.length).setWrap(true).setHorizontalAlignment('center');
+
+  // 1行目: 進捗サマリーバナー
+  sh.getRange(1, 1, 1, header.length).merge()
+    .setValue(summaryText)
+    .setFontWeight('bold')
+    .setFontSize(11)
+    .setBackground('#e8f0fe')
+    .setFontColor('#1a73e8')
+    .setVerticalAlignment('middle');
+  sh.setRowHeight(1, 28);
+
+  // 2行目: ヘッダー
+  sh.getRange(2, 1, 1, header.length).setValues([header]);
+  sh.getRange(2, 1, 1, header.length)
+    .setFontWeight('bold')
+    .setBackground('#f1f3f4')
+    .setWrap(true)
+    .setHorizontalAlignment('center')
+    .setVerticalAlignment('middle');
+  sh.setRowHeight(2, 28);
+
+  // 3行目〜: データ行
   if (body.length) {
-    sh.getRange(2, 1, body.length, header.length).setValues(body);
-    sh.getRange(2, 1, body.length, header.length).setBackgrounds(colors);
-    sh.getRange(2, 1, body.length, header.length).setHorizontalAlignment('center');
+    sh.getRange(3, 1, body.length, header.length).setValues(body);
+    sh.getRange(3, 1, body.length, header.length).setBackgrounds(colors);
+    sh.getRange(3, 1, body.length, header.length).setHorizontalAlignment('center').setVerticalAlignment('middle');
     // 日付が変わるところに中太罫線
     for (var r = 0; r < body.length; r += times.length) {
-      sh.getRange(r + 2, 1, 1, header.length).setBorder(true, null, null, null, null, null, '#5f6368', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+      sh.getRange(r + 3, 1, 1, header.length).setBorder(true, null, null, null, null, null, '#5f6368', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
     }
   }
   sh.setColumnWidth(1, 110);
   sh.setColumnWidth(2, 120);
-  for (var cc = 0; cc < classes.length; cc++) sh.setColumnWidth(3 + cc, 150);
-  sh.setFrozenRows(1);
+  for (var colIdx = 0; colIdx < classes.length; colIdx++) sh.setColumnWidth(3 + colIdx, 150);
+  sh.setFrozenRows(2);
   sh.setFrozenColumns(2);
   return body.length;
 }
@@ -196,22 +248,6 @@ function rebuildClassSheets() {
   var classes = getClasses();
   var slots = readSlots_();
 
-  // 旧「生徒名簿」シートがあればバックアップ用に読込む
-  var oldRosterMap = {};
-  var oldSh = ss.getSheetByName('生徒名簿');
-  if (oldSh && oldSh.getLastRow() >= 2) {
-    var oldVals = oldSh.getRange(2, 1, oldSh.getLastRow() - 1, 3).getValues();
-    for (var k = 0; k < oldVals.length; k++) {
-      var oCls = String(oldVals[k][0] || '').trim();
-      var oNo = Number(oldVals[k][1]) || 0;
-      var oName = String(oldVals[k][2] || '').trim();
-      if (oCls && oNo && oName) {
-        if (!oldRosterMap[oCls]) oldRosterMap[oCls] = [];
-        oldRosterMap[oCls].push({ no: oNo, name: oName });
-      }
-    }
-  }
-
   var headerLeft = ['出席番号', '生徒氏名', '予約状況', '予約日時', '保護者氏名', '連絡事項'];
   var headerRight = ['日付', '時間', '状態', '出席番号', '生徒氏名', '保護者氏名', '予約コード'];
 
@@ -220,7 +256,6 @@ function rebuildClassSheets() {
     var name = CLASS_SHEET_PREFIX + clsName;
     var sh = ss.getSheetByName(name) || ss.insertSheet(name);
 
-    // 既存のA・B列（手入力された出席番号と生徒氏名）を取得
     var existingStudents = [];
     var lastRow = sh.getLastRow();
     if (lastRow >= 2) {
@@ -234,15 +269,8 @@ function rebuildClassSheets() {
       }
     }
 
-    // もし既存のA・B列が空で、旧生徒名簿シートが存在していた場合は自動移行
-    if (!existingStudents.length && oldRosterMap[clsName]) {
-      existingStudents = oldRosterMap[clsName];
-    }
-
-    // 出席番号順にソート
     existingStudents.sort(function (a, b) { return a.no - b.no; });
 
-    // 該当クラスの予約済み枠を生徒番号でインデックス化
     var bookedByNo = {};
     for (var i = 0; i < slots.length; i++) {
       var v = slots[i].v;
@@ -280,7 +308,7 @@ function rebuildClassSheets() {
       }
     }
 
-    // 右側 (I〜O): 時間枠別 予約表 (O列に予約コード・日付の切り替わりインデックス記録)
+    // 右側 (I〜O): 時間枠別 予約表
     var bodyRight = [];
     var colorsRight = [];
     var dateBoundaries = [];
@@ -291,7 +319,7 @@ function rebuildClassSheets() {
       if (String(sv[COL.CLASS - 1]) !== clsName) continue;
       var curDate = dateLabel_(sv[COL.DATE - 1]);
       if (curDate !== prevDate) {
-        dateBoundaries.push(bodyRight.length); // 切り替わり行（0始まり）
+        dateBoundaries.push(bodyRight.length);
         prevDate = curDate;
       }
       var statusStr = String(sv[COL.STATUS - 1]);
@@ -308,7 +336,6 @@ function rebuildClassSheets() {
       colorsRight.push([bg, bg, bg, bg, bg, bg, bg]);
     }
 
-    // --- クリアと再描画 ---
     sh.clear();
 
     // 左側ヘッダー (A1:F1)
@@ -334,54 +361,31 @@ function rebuildClassSheets() {
       sh.getRange(2, 9, bodyRight.length, headerRight.length).setValues(bodyRight);
       sh.getRange(2, 9, bodyRight.length, headerRight.length).setBackgrounds(colorsRight);
 
-      // 日ちにちごとの境界線（中太上罫線 #5f6368）を描画
       for (var bIdx = 0; bIdx < dateBoundaries.length; bIdx++) {
-        var rNum = dateBoundaries[bIdx] + 2; // シート上の行番号
+        var rNum = dateBoundaries[bIdx] + 2;
         sh.getRange(rNum, 9, 1, headerRight.length)
           .setBorder(true, null, null, null, null, null, '#5f6368', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
       }
     }
 
-    // 列幅と固定
     sh.setFrozenRows(1);
-    sh.setColumnWidth(1, 70);  // 出席番号
-    sh.setColumnWidth(2, 120); // 生徒氏名
-    sh.setColumnWidth(3, 80);  // 予約状況
-    sh.setColumnWidth(4, 180); // 予約日時
-    sh.setColumnWidth(5, 120); // 保護者氏名
-    sh.setColumnWidth(6, 200); // 連絡事項
+    sh.setColumnWidth(1, 70);
+    sh.setColumnWidth(2, 120);
+    sh.setColumnWidth(3, 80);
+    sh.setColumnWidth(4, 180);
+    sh.setColumnWidth(5, 120);
+    sh.setColumnWidth(6, 200);
 
-    sh.setColumnWidth(8, 30);  // 区切り列(H)
+    sh.setColumnWidth(8, 30);
 
-    sh.setColumnWidth(9, 110);  // 日付
-    sh.setColumnWidth(10, 110); // 時間
-    sh.setColumnWidth(11, 70);  // 状態
-    sh.setColumnWidth(12, 70);  // 出席番号
-    sh.setColumnWidth(13, 120); // 生徒氏名
-    sh.setColumnWidth(14, 120); // 保護者氏名
-    sh.setColumnWidth(15, 100); // 予約コード(O列)
+    sh.setColumnWidth(9, 110);
+    sh.setColumnWidth(10, 110);
+    sh.setColumnWidth(11, 70);
+    sh.setColumnWidth(12, 70);
+    sh.setColumnWidth(13, 120);
+    sh.setColumnWidth(14, 120);
+    sh.setColumnWidth(15, 100);
   }
-
-  // 旧「生徒名簿」シートが残っている場合は自動削除
-  if (oldSh) {
-    try { ss.deleteSheet(oldSh); } catch (e) { /* 無視 */ }
-  }
-}
-
-/** 未予約の生徒一覧 [{cls, no, name}] */
-function unbookedStudents(clsFilter) {
-  var roster = getRoster();
-  var slots = readSlots_();
-  var booked = {};
-  for (var i = 0; i < slots.length; i++) {
-    var v = slots[i].v;
-    if (String(v[COL.STATUS - 1]) !== STATUS.BOOKED) continue;
-    booked[String(v[COL.CLASS - 1]) + '#' + Number(v[COL.NUMBER - 1])] = true;
-  }
-  return roster.filter(function (s) {
-    if (clsFilter && s.cls !== clsFilter) return false;
-    return !booked[s.cls + '#' + s.no];
-  });
 }
 
 /** キャッシュされた空き枠を読む */
@@ -413,7 +417,7 @@ function readSlotsCached_() {
   });
   try {
     cache.put('all_slots_v1', JSON.stringify(simple), 30);
-  } catch (e) { /* 大きいと入れられないが気にしない */ }
+  } catch (e) { /* ignore */ }
   return slots;
 }
 
