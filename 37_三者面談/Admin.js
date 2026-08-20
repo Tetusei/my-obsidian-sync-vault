@@ -44,6 +44,7 @@ function createOnOpenTrigger() {
 function menuSetup() {
   var ui = SpreadsheetApp.getUi();
   var created = setupSystem();
+  hideInternalSheets();
   ui.alert('初期セットアップ',
     (created.length ? '作成したシート: ' + created.join(', ') : '必要なシートはすべて揃っています。') +
     '\n\n次の順で入力してください。\n' +
@@ -59,6 +60,7 @@ function menuGenerateDummyRoster() {
   var ui = SpreadsheetApp.getUi();
   try {
     var res = generateDummyRoster();
+    hideInternalSheets();
     var msg = '全4クラス分（計 ' + res.count + ' 名）のダミー生徒を各予約表シートのA・B列に追加しました。';
     if (res.slotsCreated) {
       msg += '\n\n※「枠マスタ」シートが空だったため、面談枠も自動的に再生成しました！';
@@ -77,6 +79,7 @@ function menuGenerateSlots() {
     var r = generateSlots();
     rebuildOverview();
     rebuildClassSheets();
+    hideInternalSheets();
     ui.alert('枠を再生成しました',
       r.written + ' 枠を作成しました（既存の予約 ' + r.kept + ' 件を引き継ぎ）。', ui.ButtonSet.OK);
   } catch (err) {
@@ -87,7 +90,8 @@ function menuGenerateSlots() {
 function menuRefreshViews() {
   rebuildOverview();
   rebuildClassSheets();
-  ss_().toast('全体ビューとクラス別予約表を更新しました。', '三者面談', 5);
+  hideInternalSheets();
+  ss_().toast('全体ビューとクラス別予約表を更新し、システムシートを整理しました。', '三者面談', 5);
 }
 
 function menuUnbooked() {
@@ -134,6 +138,7 @@ function setStatusForSelection_(newStatus) {
   clearSlotCache_();
   rebuildOverview();
   rebuildClassSheets();
+  hideInternalSheets();
   ui.alert(changed + ' 件を「' + newStatus + '」にしました。' +
     (skipped ? '\n予約が入っている ' + skipped + ' 件は変更していません（先に取り消してください）。' : ''));
 }
@@ -171,6 +176,7 @@ function menuCancel() {
   clearSlotCache_();
   rebuildOverview();
   rebuildClassSheets();
+  hideInternalSheets();
   ui.alert(targets.length + ' 件の予約を取り消しました。');
 }
 
@@ -307,6 +313,7 @@ function apiAdminRefreshViews(pass) {
     requireAdmin_(pass);
     rebuildOverview();
     rebuildClassSheets();
+    hideInternalSheets();
     return {};
   });
 }

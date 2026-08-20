@@ -7,7 +7,7 @@
  */
 
 /** Antigravity 管理バージョン */
-var VERSION = '1.6.0';
+var VERSION = '1.7.0';
 
 /** 対象スプレッドシート。バインドでも単体スクリプトでも動くよう ID を明示する。 */
 var SPREADSHEET_ID = '1nvbdoNcZvwCrPi48GdxG_Q6eveCBDvk9s7HF4V10BM0';
@@ -241,4 +241,15 @@ function logAction_(action, slotId, cls, no, name, detail) {
   } catch (err) {
     console.error('logAction_ failed: ' + err);
   }
+}
+
+/** システム用内部シート（枠マスタ・予約ログ）を非表示化する */
+function hideInternalSheets() {
+  var ss = ss_();
+  [SH.SLOTS, SH.LOG].forEach(function (name) {
+    var sh = ss.getSheetByName(name);
+    if (sh && !sh.isSheetHidden()) {
+      try { sh.hideSheet(); } catch (e) { /* 無視 */ }
+    }
+  });
 }

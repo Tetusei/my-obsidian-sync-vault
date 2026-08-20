@@ -65,7 +65,7 @@ function setupSystem() {
       var sh = ss.insertSheet(name);
       created.push(name);
       var headerLeft = ['出席番号', '生徒氏名', '予約状況', '予約日時', '保護者氏名', '連絡事項'];
-      var headerRight = ['日付', '時間', '状態', '出席番号', '生徒氏name', '保護者氏名', '予約コード'];
+      var headerRight = ['日付', '時間', '状態', '出席番号', '生徒氏名', '保護者氏名', '予約コード'];
       sh.getRange(1, 1, 1, headerLeft.length).setValues([headerLeft]).setFontWeight('bold').setBackground('#d9ead3');
       sh.getRange(1, 9, 1, headerRight.length).setValues([headerRight]).setFontWeight('bold').setBackground('#e8eaed');
       sh.setFrozenRows(1);
@@ -75,6 +75,9 @@ function setupSystem() {
   // 日付列を日付書式に
   var days = ss.getSheetByName(SH.DAYS);
   days.getRange(2, 1, Math.max(days.getMaxRows() - 1, 1), 1).setNumberFormat('yyyy/mm/dd');
+
+  // システム用内部シート（枠マスタ・予約ログ）を非表示化
+  hideInternalSheets();
 
   return created;
 }
@@ -200,6 +203,9 @@ function generateDummyRoster() {
 
   rebuildOverview();
   rebuildClassSheets();
+
+  // 内部シートを非表示化
+  hideInternalSheets();
 
   return { count: totalAdded, slotsCreated: slotsCreated };
 }
