@@ -2,7 +2,7 @@
  * 三者面談 予約表 — クラス別PDF出力処理
  * 
  * 1. クラス別 予約一覧表（1P: 生徒別、2P: 時間別）
- * 2. 当日用 面談メモ・カルテ付き 進行シート（1日2ページ・超広々手書きメモ欄付き A4縦）
+ * 2. 当日用 面談メモ・カルテ付き 進行シート（1日2ページ・A4用紙フルフィット・超広々メモ欄付き）
  */
 
 var PDF_FOLDER_NAME = '📄_三者面談PDF';
@@ -100,12 +100,12 @@ function exportSingleClassPdf_(clsName, folder, nowStr, fileDateStr) {
     p1Sheet.getRange(2, 1, lastRow, 6).setBorder(true, true, true, true, true, true, '#b7b7b7', SpreadsheetApp.BorderStyle.SOLID);
     p1Sheet.getRange(2, 1, 1, 6).setBorder(true, true, true, true, true, true, '#5f6368', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
 
-    p1Sheet.setColumnWidth(1, 45);  // 出席番号
-    p1Sheet.setColumnWidth(2, 95);  // 生徒氏名
-    p1Sheet.setColumnWidth(3, 60);  // 予約状況
-    p1Sheet.setColumnWidth(4, 130); // 予約日時
-    p1Sheet.setColumnWidth(5, 95);  // 保護者氏名
-    p1Sheet.setColumnWidth(6, 150); // 連絡事項
+    p1Sheet.setColumnWidth(1, 55);  // 出席番号
+    p1Sheet.setColumnWidth(2, 115); // 生徒氏名
+    p1Sheet.setColumnWidth(3, 75);  // 予約状況
+    p1Sheet.setColumnWidth(4, 160); // 予約日時
+    p1Sheet.setColumnWidth(5, 115); // 保護者氏名
+    p1Sheet.setColumnWidth(6, 210); // 連絡事項
 
     // 2ページ目: 時間枠別 予約表
     var p2Sheet = tempSs.insertSheet('時間枠別予約表');
@@ -138,13 +138,13 @@ function exportSingleClassPdf_(clsName, folder, nowStr, fileDateStr) {
       }
     }
 
-    p2Sheet.setColumnWidth(1, 85); // 日付
-    p2Sheet.setColumnWidth(2, 85); // 時間
-    p2Sheet.setColumnWidth(3, 50); // 状態
-    p2Sheet.setColumnWidth(4, 45); // 出席番号
-    p2Sheet.setColumnWidth(5, 95); // 生徒氏名
-    p2Sheet.setColumnWidth(6, 95); // 保護者氏名
-    p2Sheet.setColumnWidth(7, 65); // 予約コード
+    p2Sheet.setColumnWidth(1, 110); // 日付
+    p2Sheet.setColumnWidth(2, 110); // 時間
+    p2Sheet.setColumnWidth(3, 70);  // 状態
+    p2Sheet.setColumnWidth(4, 60);  // 出席番号
+    p2Sheet.setColumnWidth(5, 125); // 生徒氏名
+    p2Sheet.setColumnWidth(6, 125); // 保護者氏名
+    p2Sheet.setColumnWidth(7, 130); // 予約コード
 
     SpreadsheetApp.flush();
 
@@ -235,7 +235,7 @@ function exportCurrentMeetingNotesPdf(targetClsName) {
 
 /**
  * 1クラス分の当日面談メモシートPDFを作成
- * （1日あたり最大3枠ずつページ分割し、超広々とした手書きメモ欄を確保）
+ * （A4用紙の縦横にぴったりフルフィット：横幅740px・縦幅929px）
  */
 function exportSingleMeetingNotesPdf_(clsName, folder, nowStr, fileDateStr) {
   var ss = ss_();
@@ -250,7 +250,7 @@ function exportSingleMeetingNotesPdf_(clsName, folder, nowStr, fileDateStr) {
   var tempSs = SpreadsheetApp.create('Temp_MeetingNotes_' + clsName + '_' + fileDateStr);
   var tempSsId = tempSs.getId();
   var sheetIndex = 0;
-  var SLOTS_PER_PAGE = 3; // 1ページあたり3枠で超ゆったり配置
+  var SLOTS_PER_PAGE = 3; // 1ページあたり3枠
 
   try {
     for (var d = 0; d < days.length; d++) {
@@ -274,15 +274,15 @@ function exportSingleMeetingNotesPdf_(clsName, folder, nowStr, fileDateStr) {
         sheetIndex++;
         sheet.setName((dLabel + '_' + (p + 1)).replace(/[()]/g, '_'));
 
-        // タイトルヘッダー（高さ32px）
+        // タイトルヘッダー（高さ38px・文字13pt太字）
         sheet.getRange(1, 1, 1, 4).merge()
           .setValue('【' + clsName + '】三者面談 進行記録シート　' + dLabel + pageLabel + (teacherName ? '（担任: ' + teacherName + '）' : ''))
           .setFontWeight('bold')
-          .setFontSize(12)
+          .setFontSize(13)
           .setBackground('#d9ead3')
           .setHorizontalAlignment('center')
           .setVerticalAlignment('middle');
-        sheet.setRowHeight(1, 32);
+        sheet.setRowHeight(1, 38);
 
         var curRow = 2;
         for (var idx = 0; idx < pageSlots.length; idx++) {
@@ -296,57 +296,58 @@ function exportSingleMeetingNotesPdf_(clsName, folder, nowStr, fileDateStr) {
           var guardian = slot[COL.GUARDIAN - 1] ? slot[COL.GUARDIAN - 1] + ' 様' : '';
           var note = slot[COL.NOTE - 1] || '（特になし）';
 
-          // 枠ヘッダー行（高さ28px・フォント11pt太字）
+          // 枠ヘッダー行（高さ32px・フォント11.5pt太字）
           sheet.getRange(curRow, 1, 1, 4).merge()
             .setValue('【第' + globalSlotIndex + '枠】 ' + timeStr + '　' + (isBooked ? stNo + ' ' + stName + '（保護者: ' + guardian + '）' : '（※' + st + '）'))
             .setFontWeight('bold')
-            .setFontSize(11)
+            .setFontSize(11.5)
             .setBackground(isBooked ? '#e8f0fe' : '#f1f3f4')
             .setVerticalAlignment('middle');
-          sheet.setRowHeight(curRow, 28);
+          sheet.setRowHeight(curRow, 32);
           curRow++;
 
-          // 内容ブロック（左: 予約詳細・連絡事項、右: 手書きメモ欄）
-          // 左側: 事前の連絡・相談事項（高さ58+58+54=170px の超広々エリア）
+          // 内容ブロック（左: 事前相談事項、右: 手書きメモ欄）
+          // 左側: 事前の連絡・相談事項（高さ85+85+80=250px、幅300pxの特大エリア）
           sheet.getRange(curRow, 1, 3, 2).merge()
             .setValue('■ 事前の連絡・相談事項:\n' + (isBooked ? note : '—'))
-            .setFontSize(10)
+            .setFontSize(10.5)
             .setWrap(true)
             .setVerticalAlignment('top');
 
-          // ［進路・学習面］行（超ゆったり 58px）
+          // ［進路・学習面］行（特大 85px）
           sheet.getRange(curRow, 3, 1, 2).merge()
             .setValue('［進路・学習面］')
-            .setFontSize(10).setFontColor('#5f6368').setVerticalAlignment('top');
-          sheet.setRowHeight(curRow, 58);
+            .setFontSize(10.5).setFontColor('#5f6368').setVerticalAlignment('top');
+          sheet.setRowHeight(curRow, 85);
           curRow++;
 
-          // ［生活・友人・家庭］行（超ゆったり 58px）
+          // ［生活・友人・家庭］行（特大 85px）
           sheet.getRange(curRow, 3, 1, 2).merge()
             .setValue('［生活・友人・家庭］')
-            .setFontSize(10).setFontColor('#5f6368').setVerticalAlignment('top');
-          sheet.setRowHeight(curRow, 58);
+            .setFontSize(10.5).setFontColor('#5f6368').setVerticalAlignment('top');
+          sheet.setRowHeight(curRow, 85);
           curRow++;
 
-          // ［次への確認事項・申し送り］行（超ゆったり 54px）
+          // ［次への確認事項・申し送り］行（特大 80px）
           sheet.getRange(curRow, 3, 1, 2).merge()
             .setValue('［次への確認事項・申し送り］')
-            .setFontSize(10).setFontColor('#5f6368').setVerticalAlignment('top');
-          sheet.setRowHeight(curRow, 54);
+            .setFontSize(10.5).setFontColor('#5f6368').setVerticalAlignment('top');
+          sheet.setRowHeight(curRow, 80);
           curRow++;
 
           // 枠を囲む罫線
           sheet.getRange(curRow - 4, 1, 4, 4)
             .setBorder(true, true, true, true, true, true, '#5f6368', SpreadsheetApp.BorderStyle.SOLID);
           
-          sheet.setRowHeight(curRow, 12); // ゆったり余白行
+          sheet.setRowHeight(curRow, 15); // 余白行
           curRow++;
         }
 
-        sheet.setColumnWidth(1, 100);
-        sheet.setColumnWidth(2, 130);
-        sheet.setColumnWidth(3, 160);
-        sheet.setColumnWidth(4, 160);
+        // A4用紙の横幅にぴったり合わせる列幅設定（合計740px）
+        sheet.setColumnWidth(1, 120);
+        sheet.setColumnWidth(2, 180); // 左側計 300px
+        sheet.setColumnWidth(3, 220);
+        sheet.setColumnWidth(4, 220); // 右側計 440px
       }
     }
 
@@ -360,7 +361,7 @@ function exportSingleMeetingNotesPdf_(clsName, folder, nowStr, fileDateStr) {
       '&gridlines=false' +
       '&printtitle=false' +
       '&sheetnames=false' +
-      '&top_margin=0.35&bottom_margin=0.35&left_margin=0.35&right_margin=0.35' +
+      '&top_margin=0.3&bottom_margin=0.3&left_margin=0.3&right_margin=0.3' +
       '&fzr=false';
 
     var token = ScriptApp.getOAuthToken();
