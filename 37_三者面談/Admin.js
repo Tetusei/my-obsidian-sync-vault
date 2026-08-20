@@ -101,10 +101,7 @@ function menuExportAllPdf() {
   ss_().toast('全クラスのPDFを作成しています。十数秒お待ちください…', '三者面談 PDF出力', 15);
   try {
     var res = exportAllClassesPdf();
-    ui.alert('PDF作成完了',
-      '全 ' + res.count + ' クラス分のPDFを「' + res.folderName + '」フォルダに作成しました。\n\n' +
-      'Google ドライブのフォルダをご確認ください:\n' + res.folderUrl,
-      ui.ButtonSet.OK);
+    showAllPdfCompleteDialog_(res);
   } catch (err) {
     ui.alert('PDF作成エラー', String(err.message || err), ui.ButtonSet.OK);
   }
@@ -115,11 +112,7 @@ function menuExportCurrentPdf() {
   ss_().toast('PDFを作成しています。少々お待ちください…', '三者面談 PDF出力', 10);
   try {
     var res = exportCurrentClassPdf();
-    ui.alert('PDF作成完了',
-      '【' + res.className + '】のPDFを作成しました。\n\n' +
-      'ファイル名: ' + res.fileName + '\n\n' +
-      'Google ドライブで確認:\n' + res.fileUrl,
-      ui.ButtonSet.OK);
+    showPdfCompleteDialog_(res);
   } catch (err) {
     ui.alert('PDF作成エラー', String(err.message || err), ui.ButtonSet.OK);
   }

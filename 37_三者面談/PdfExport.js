@@ -208,3 +208,68 @@ function getOrCreatePdfFolder_() {
   }
   return parentFolder.createFolder(PDF_FOLDER_NAME);
 }
+
+/**
+ * 単体クラスPDF作成完了ダイアログ（クリック可能なリンクボタン付き）
+ */
+function showPdfCompleteDialog_(res) {
+  var html = '<!DOCTYPE html><html><head><base target="_blank">' +
+    '<style>' +
+    'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 16px 20px; color: #202124; line-height: 1.5; margin: 0; }' +
+    'h2 { font-size: 1.15rem; margin: 0 0 12px; color: #1a73e8; display: flex; align-items: center; gap: 8px; }' +
+    'p { margin: 0 0 10px; font-size: 0.95rem; }' +
+    '.filename { font-size: 0.88rem; color: #5f6368; background: #f1f3f4; padding: 6px 10px; border-radius: 6px; word-break: break-all; margin: 10px 0 16px; }' +
+    '.btn-group { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; }' +
+    'a.btn { display: block; text-align: center; padding: 10px 14px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 0.95rem; box-sizing: border-box; }' +
+    'a.btn-primary { background: #1a73e8; color: #ffffff; }' +
+    'a.btn-primary:hover { background: #1557b0; }' +
+    'a.btn-secondary { background: #ffffff; color: #1a73e8; border: 1px solid #dadce0; }' +
+    'a.btn-secondary:hover { background: #f8f9fa; }' +
+    'button.btn-close { width: 100%; padding: 8px; background: transparent; border: none; color: #5f6368; font-size: 0.88rem; cursor: pointer; margin-top: 6px; }' +
+    'button.btn-close:hover { text-decoration: underline; }' +
+    '</style></head><body>' +
+    '<h2>📄 PDFの作成が完了しました</h2>' +
+    '<p><strong>【' + res.className + '】</strong>の予約表PDFを作成しました。</p>' +
+    '<div class="filename">📎 ' + res.fileName + '</div>' +
+    '<div class="btn-group">' +
+    '<a class="btn btn-primary" href="' + res.fileUrl + '">📄 作成したPDFを開く</a>' +
+    '<a class="btn btn-secondary" href="' + res.folderUrl + '">📁 保存先フォルダを開く</a>' +
+    '<button class="btn-close" onclick="google.script.host.close()">閉じる</button>' +
+    '</div></body></html>';
+
+  var userInterface = HtmlService.createHtmlOutput(html)
+    .setWidth(420)
+    .setHeight(270);
+  SpreadsheetApp.getUi().showModalDialog(userInterface, 'PDF作成完了');
+}
+
+/**
+ * 全クラスPDF作成完了ダイアログ（クリック可能なリンクボタン付き）
+ */
+function showAllPdfCompleteDialog_(res) {
+  var html = '<!DOCTYPE html><html><head><base target="_blank">' +
+    '<style>' +
+    'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 16px 20px; color: #202124; line-height: 1.5; margin: 0; }' +
+    'h2 { font-size: 1.15rem; margin: 0 0 12px; color: #1a73e8; display: flex; align-items: center; gap: 8px; }' +
+    'p { margin: 0 0 10px; font-size: 0.95rem; }' +
+    '.folder-box { font-size: 0.9rem; color: #202124; background: #e8f0fe; padding: 8px 12px; border-radius: 6px; margin: 10px 0 16px; }' +
+    '.btn-group { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; }' +
+    'a.btn { display: block; text-align: center; padding: 10px 14px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 0.95rem; box-sizing: border-box; }' +
+    'a.btn-primary { background: #1a73e8; color: #ffffff; }' +
+    'a.btn-primary:hover { background: #1557b0; }' +
+    'button.btn-close { width: 100%; padding: 8px; background: transparent; border: none; color: #5f6368; font-size: 0.88rem; cursor: pointer; margin-top: 6px; }' +
+    'button.btn-close:hover { text-decoration: underline; }' +
+    '</style></head><body>' +
+    '<h2>📄 全クラスPDF作成完了</h2>' +
+    '<p>全 <strong>' + res.count + '</strong> クラス分の予約表PDFを作成しました。</p>' +
+    '<div class="folder-box">📁 保存先: <strong>' + res.folderName + '</strong> フォルダ</div>' +
+    '<div class="btn-group">' +
+    '<a class="btn btn-primary" href="' + res.folderUrl + '">📁 保存先フォルダを開く</a>' +
+    '<button class="btn-close" onclick="google.script.host.close()">閉じる</button>' +
+    '</div></body></html>';
+
+  var userInterface = HtmlService.createHtmlOutput(html)
+    .setWidth(420)
+    .setHeight(250);
+  SpreadsheetApp.getUi().showModalDialog(userInterface, '全クラスPDF作成完了');
+}
