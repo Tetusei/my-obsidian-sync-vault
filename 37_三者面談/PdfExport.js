@@ -2,7 +2,7 @@
  * 三者面談 予約表 — クラス別PDF出力処理
  * 
  * 1. クラス別 予約一覧表（1P: 生徒別、2P: 時間別）
- * 2. 当日用 面談メモ・カルテ付き 進行シート（日別・手書きメモ欄付き A4縦）
+ * 2. 当日用 面談メモ・カルテ付き 進行シート（日別・手書きメモ欄付き A4縦 1日1ページ）
  */
 
 var PDF_FOLDER_NAME = '📄_三者面談PDF';
@@ -89,7 +89,7 @@ function exportSingleClassPdf_(clsName, folder, nowStr, fileDateStr) {
       .setBackground('#cfe2f3')
       .setHorizontalAlignment('center')
       .setVerticalAlignment('middle');
-    p1Sheet.setRowHeight(1, 32);
+    p1Sheet.setRowHeight(1, 30);
 
     var leftRange = sh.getRange(1, 1, lastRow, 6);
     p1Sheet.getRange(2, 1, lastRow, 6).setValues(leftRange.getValues());
@@ -117,7 +117,7 @@ function exportSingleClassPdf_(clsName, folder, nowStr, fileDateStr) {
       .setBackground('#d9d2e9')
       .setHorizontalAlignment('center')
       .setVerticalAlignment('middle');
-    p2Sheet.setRowHeight(1, 32);
+    p2Sheet.setRowHeight(1, 30);
 
     var rightRange = sh.getRange(1, 9, lastRow, 7);
     var rightValues = rightRange.getValues();
@@ -156,6 +156,7 @@ function exportSingleClassPdf_(clsName, folder, nowStr, fileDateStr) {
       '&gridlines=false' +
       '&printtitle=false' +
       '&sheetnames=false' +
+      '&top_margin=0.35&bottom_margin=0.35&left_margin=0.35&right_margin=0.35' +
       '&fzr=false';
 
     var token = ScriptApp.getOAuthToken();
@@ -233,7 +234,7 @@ function exportCurrentMeetingNotesPdf(targetClsName) {
 }
 
 /**
- * 1クラス分の当日面談メモシートPDFを作成（各実施日ごとに1ページ・ゆったり手書きメモ欄）
+ * 1クラス分の当日面談メモシートPDFを作成（各実施日ごとに1ページにぴったり収まる設計）
  */
 function exportSingleMeetingNotesPdf_(clsName, folder, nowStr, fileDateStr) {
   var ss = ss_();
@@ -263,15 +264,23 @@ function exportSingleMeetingNotesPdf_(clsName, folder, nowStr, fileDateStr) {
       var sheet = (d === 0) ? tempSs.getSheets()[0] : tempSs.insertSheet('Day_' + (d + 1));
       sheet.setName(dLabel.replace(/[()]/g, '_'));
 
-      // タイトルヘッダー
+      // タイトルヘッダー（高さ26px）
       sheet.getRange(1, 1, 1, 4).merge()
         .setValue('【' + clsName + '】三者面談 進行記録シート　' + dLabel + (teacherName ? '（担任: ' + teacherName + '）' : ''))
         .setFontWeight('bold')
-        .setFontSize(12)
+        .setFontSize(11)
         .setBackground('#d9ead3')
         .setHorizontalAlignment('center')
         .setVerticalAlignment('middle');
-      sheet.setRowHeight(1, 30);
+      sheet.setRowHeight(1, 26);
+
+      // 枠数に応じた行の高さの最適化（A4縦 1ページに絶対に収まる計算: 1日総高さ約730px）
+      var slotCount = Math.max(daySlots.length, 1);
+      var headerH = 20;
+      var spaceH = 4;
+      var availableH = 720 - (slotCount * (headerH + spaceH));
+      var noteH = Math.max(Math.floor(availableH / (slotCount * 3)), 28); // 1項目あたり約32〜34px
+      var lastNoteH = noteH - 2;
 
       var curRow = 2;
       for (var idx = 0; idx < daySlots.length; idx++) {
@@ -284,49 +293,49 @@ function exportSingleMeetingNotesPdf_(clsName, folder, nowStr, fileDateStr) {
         var guardian = slot[COL.GUARDIAN - 1] ? slot[COL.GUARDIAN - 1] + ' 様' : '';
         var note = slot[COL.NOTE - 1] || 'なし';
 
-        // 枠ヘッダー行（高さ26px）
+        // 枠ヘッダー行（高さ20px）
         sheet.getRange(curRow, 1, 1, 4).merge()
           .setValue('【第' + (idx + 1) + '枠】 ' + timeStr + '　' + (isBooked ? stNo + ' ' + stName + '（保護者: ' + guardian + '）' : '（※' + st + '）'))
           .setFontWeight('bold')
-          .setFontSize(10)
+          .setFontSize(9.5)
           .setBackground(isBooked ? '#e8f0fe' : '#f1f3f4')
           .setVerticalAlignment('middle');
-        sheet.setRowHeight(curRow, 26);
+        sheet.setRowHeight(curRow, headerH);
         curRow++;
 
         // 内容ブロック（左: 予約詳細・連絡事項、右: 手書きメモ欄）
         sheet.getRange(curRow, 1, 3, 2).merge()
           .setValue('■ 事前の連絡・相談事項:\n' + (isBooked ? note : '—'))
-          .setFontSize(9)
+          .setFontSize(8.5)
           .setWrap(true)
           .setVerticalAlignment('top');
 
-        // ［進路・学習面］行（ゆったり42px）
+        // ［進路・学習面］行
         sheet.getRange(curRow, 3, 1, 2).merge()
           .setValue('［進路・学習面］')
-          .setFontSize(9).setFontColor('#5f6368').setVerticalAlignment('top');
-        sheet.setRowHeight(curRow, 42);
+          .setFontSize(8.5).setFontColor('#5f6368').setVerticalAlignment('top');
+        sheet.setRowHeight(curRow, noteH);
         curRow++;
 
-        // ［生活・友人・家庭］行（ゆったり42px）
+        // ［生活・友人・家庭］行
         sheet.getRange(curRow, 3, 1, 2).merge()
           .setValue('［生活・友人・家庭］')
-          .setFontSize(9).setFontColor('#5f6368').setVerticalAlignment('top');
-        sheet.setRowHeight(curRow, 42);
+          .setFontSize(8.5).setFontColor('#5f6368').setVerticalAlignment('top');
+        sheet.setRowHeight(curRow, noteH);
         curRow++;
 
-        // ［次への確認事項・申し送り］行（ゆったり40px）
+        // ［次への確認事項・申し送り］行
         sheet.getRange(curRow, 3, 1, 2).merge()
           .setValue('［次への確認事項・申し送り］')
-          .setFontSize(9).setFontColor('#5f6368').setVerticalAlignment('top');
-        sheet.setRowHeight(curRow, 40);
+          .setFontSize(8.5).setFontColor('#5f6368').setVerticalAlignment('top');
+        sheet.setRowHeight(curRow, lastNoteH);
         curRow++;
 
         // 枠を囲む罫線
         sheet.getRange(curRow - 4, 1, 4, 4)
           .setBorder(true, true, true, true, true, true, '#5f6368', SpreadsheetApp.BorderStyle.SOLID);
         
-        sheet.setRowHeight(curRow, 10); // 余白行（10px）
+        sheet.setRowHeight(curRow, spaceH);
         curRow++;
       }
 
@@ -346,6 +355,7 @@ function exportSingleMeetingNotesPdf_(clsName, folder, nowStr, fileDateStr) {
       '&gridlines=false' +
       '&printtitle=false' +
       '&sheetnames=false' +
+      '&top_margin=0.3&bottom_margin=0.3&left_margin=0.3&right_margin=0.3' +
       '&fzr=false';
 
     var token = ScriptApp.getOAuthToken();
