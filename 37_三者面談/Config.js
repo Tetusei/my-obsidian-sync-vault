@@ -7,7 +7,7 @@
  */
 
 /** Antigravity 管理バージョン */
-var VERSION = '1.7.1';
+var VERSION = '1.8.0';
 
 /** 対象スプレッドシート。バインドでも単体スクリプトでも動くよう ID を明示する。 */
 var SPREADSHEET_ID = '1nvbdoNcZvwCrPi48GdxG_Q6eveCBDvk9s7HF4V10BM0';
@@ -217,15 +217,19 @@ function getRoster() {
 
   // 旧「生徒名簿」シートがまだ存在する場合のバックアップフォールバック
   if (!out.length) {
-    var oldSh = ss.getSheetByName('生徒名簿');
-    if (oldSh && oldSh.getLastRow() >= 2) {
-      var oldVals = oldSh.getRange(2, 1, oldSh.getLastRow() - 1, 3).getValues();
-      for (var k = 0; k < oldVals.length; k++) {
-        var oCls = String(oldVals[k][0] || '').trim();
-        var oNo = Number(oldVals[k][1]) || 0;
-        var oName = String(oldVals[k][2] || '').trim();
-        if (oCls && oName) out.push({ cls: oCls, no: oNo, name: oName });
+    try {
+      var oldSh = ss.getSheetByName('生徒名簿');
+      if (oldSh && oldSh.getLastRow() >= 2) {
+        var oldVals = oldSh.getRange(2, 1, oldSh.getLastRow() - 1, 3).getValues();
+        for (var k = 0; k < oldVals.length; k++) {
+          var oCls = String(oldVals[k][0] || '').trim();
+          var oNo = Number(oldVals[k][1]) || 0;
+          var oName = String(oldVals[k][2] || '').trim();
+          if (oCls && oName) out.push({ cls: oCls, no: oNo, name: oName });
+        }
       }
+    } catch (e) {
+      console.warn('旧生徒名簿読み込みスキップ:', e);
     }
   }
 

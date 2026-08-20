@@ -253,7 +253,7 @@ function withLock_(fn) {
   }
 }
 
-/** 名簿と照合する。合わなければ例外。 */
+/** 名簿と照合する。合わなければ例外。保護者へはシステムエラーを見せない。 */
 function verifyStudent_(p, cfg) {
   var cls = String((p && p.cls) || '').trim();
   var no = Number((p && p.no) || 0);
@@ -264,9 +264,18 @@ function verifyStudent_(p, cfg) {
 
   guardBruteForce_(cls + '_' + no);
 
-  var roster = getRoster();
+  var roster = [];
+  try {
+    roster = getRoster();
+  } catch (err) {
+    console.error('getRoster failed:', err);
+    throw new Error('名簿データが確認できませんでした。入力内容をご確認いただくか、担任までご連絡ください。');
+  }
+
+  var foundNo = false;
   for (var i = 0; i < roster.length; i++) {
     if (roster[i].cls !== cls || roster[i].no !== no) continue;
+    foundNo = true;
     if (cfg.checkName && norm_(roster[i].name) !== norm_(name)) {
       countFailure_(cls + '_' + no);
       throw new Error('出席番号と氏名が名簿と一致しません。姓と名の間のスペースは無くても構いません。ご不明な場合は担任までご連絡ください。');
@@ -274,6 +283,9 @@ function verifyStudent_(p, cfg) {
     return roster[i];
   }
   countFailure_(cls + '_' + no);
+  if (foundNo) {
+    throw new Error('出席番号と氏名が名簿と一致しません。姓と名の間のスペースは無くても構いません。ご不明な場合は担任までご連絡ください。');
+  }
   throw new Error('名簿に見つかりませんでした。クラスと出席番号をご確認ください。');
 }
 
