@@ -183,28 +183,60 @@ function rebuildOverview() {
 }
 
 /** 
- * クラスごとの予約表シートを作り直す（担任配布・管理用）
- * 左側(A-F): 【生徒別 予約状況（出席番号順）】 - 誰が予約済/未予約か一目でわかる
- * 右側(I-O): 【時間枠別 予約表（時間順）】 - 時間ごとの埋まり具合
+ * クラスごとの予約表シートを作り直す（各クラスシートを直接マスターとして保持）
+ * 左側(A-F): 【生徒別 予約状況（出席番号順）】 - 生徒名簿直接管理
+ * 右側(I-O): 【時間枠別 予約表（時間順）】 - O列に4桁の「予約コード」を表示
  */
 function rebuildClassSheets() {
   var ss = ss_();
   var classes = getClasses();
   var slots = readSlots_();
-  var roster = getRoster();
+
+  // 旧「生徒名簿」シートがあればバックアップ用に読込む
+  var oldRosterMap = {};
+  var oldSh = ss.getSheetByName('生徒名簿');
+  if (oldSh && oldSh.getLastRow() >= 2) {
+    var oldVals = oldSh.getRange(2, 1, oldSh.getLastRow() - 1, 3).getValues();
+    for (var k = 0; k < oldVals.length; k++) {
+      var oCls = String(oldVals[k][0] || '').trim();
+      var oNo = Number(oldVals[k][1]) || 0;
+      var oName = String(oldVals[k][2] || '').trim();
+      if (oCls && oNo && oName) {
+        if (!oldRosterMap[oCls]) oldRosterMap[oCls] = [];
+        oldRosterMap[oCls].push({ no: oNo, name: oName });
+      }
+    }
+  }
 
   var headerLeft = ['出席番号', '生徒氏名', '予約状況', '予約日時', '保護者氏名', '連絡事項'];
-  var headerRight = ['日付', '時間', '状態', '出席番号', '生徒氏名', '保護者氏名', '連絡事項'];
+  var headerRight = ['日付', '時間', '状態', '出席番号', '生徒氏名', '保護者氏名', '予約コード'];
 
   for (var c = 0; c < classes.length; c++) {
     var clsName = classes[c].name;
     var name = CLASS_SHEET_PREFIX + clsName;
     var sh = ss.getSheetByName(name) || ss.insertSheet(name);
-    sh.clear();
 
-    // 該当クラスの生徒を名簿から取得し、出席番号順にソート
-    var classStudents = roster.filter(function (s) { return s.cls === clsName; });
-    classStudents.sort(function (a, b) { return a.no - b.no; });
+    // 既存のA・B列（手入力された出席番号と生徒氏名）を取得
+    var existingStudents = [];
+    var lastRow = sh.getLastRow();
+    if (lastRow >= 2) {
+      var rawAB = sh.getRange(2, 1, lastRow - 1, 2).getValues();
+      for (var r = 0; r < rawAB.length; r++) {
+        var no = Number(rawAB[r][0]);
+        var stName = String(rawAB[r][1] || '').trim();
+        if (no && stName) {
+          existingStudents.push({ no: no, name: stName });
+        }
+      }
+    }
+
+    // もし既存のA・B列が空で、旧生徒名簿シートが存在していた場合は自動移行
+    if (!existingStudents.length && oldRosterMap[clsName]) {
+      existingStudents = oldRosterMap[clsName];
+    }
+
+    // 出席番号順にソート
+    existingStudents.sort(function (a, b) { return a.no - b.no; });
 
     // 該当クラスの予約済み枠を生徒番号でインデックス化
     var bookedByNo = {};
@@ -215,11 +247,11 @@ function rebuildClassSheets() {
       }
     }
 
-    // 左側: 生徒別 予約状況リスト (出席番号順)
+    // 左側 (A〜F): 生徒別 予約状況
     var bodyLeft = [];
     var colorsLeft = [];
-    for (var s = 0; s < classStudents.length; s++) {
-      var st = classStudents[s];
+    for (var s = 0; s < existingStudents.length; s++) {
+      var st = existingStudents[s];
       var bk = bookedByNo[st.no];
       if (bk) {
         bodyLeft.push([
@@ -240,12 +272,11 @@ function rebuildClassSheets() {
           '—',
           '—'
         ]);
-        // 未予約は薄黄色で強調表示
         colorsLeft.push(['#fef7e0', '#fef7e0', '#fef7e0', '#fef7e0', '#fef7e0', '#fef7e0']);
       }
     }
 
-    // 右側: 時間枠別 予約表 (時間順)
+    // 右側 (I〜O): 時間枠別 予約表 (O列に予約コード)
     var bodyRight = [];
     var colorsRight = [];
     for (var j = 0; j < slots.length; j++) {
@@ -259,13 +290,15 @@ function rebuildClassSheets() {
         sv[COL.NUMBER - 1] || '',
         sv[COL.STUDENT - 1] || '',
         sv[COL.GUARDIAN - 1] || '',
-        sv[COL.NOTE - 1] || ''
+        sv[COL.CODE - 1] ? "'" + String(sv[COL.CODE - 1]) : ''
       ]);
       var bg = statusStr === STATUS.OPEN ? '#e6f4ea' : (statusStr === STATUS.BLOCKED ? '#f1f3f4' : '#ffffff');
       colorsRight.push([bg, bg, bg, bg, bg, bg, bg]);
     }
 
-    // --- 書き込み ---
+    // --- クリアと再描画 ---
+    sh.clear();
+
     // 左側ヘッダー (A1:F1)
     sh.getRange(1, 1, 1, headerLeft.length).setValues([headerLeft]);
     sh.getRange(1, 1, 1, headerLeft.length)
@@ -278,7 +311,7 @@ function rebuildClassSheets() {
       sh.getRange(2, 1, bodyLeft.length, headerLeft.length).setBackgrounds(colorsLeft);
     }
 
-    // 右側ヘッダー (I1:O1) - H列は間隔用空列
+    // 右側ヘッダー (I1:O1)
     sh.getRange(1, 9, 1, headerRight.length).setValues([headerRight]);
     sh.getRange(1, 9, 1, headerRight.length)
       .setFontWeight('bold')
@@ -290,16 +323,16 @@ function rebuildClassSheets() {
       sh.getRange(2, 9, bodyRight.length, headerRight.length).setBackgrounds(colorsRight);
     }
 
-    // 書式設定
+    // 列幅と固定
     sh.setFrozenRows(1);
     sh.setColumnWidth(1, 70);  // 出席番号
     sh.setColumnWidth(2, 120); // 生徒氏名
-    sh.setColumnWidth(3, 80);  // 状況
+    sh.setColumnWidth(3, 80);  // 予約状況
     sh.setColumnWidth(4, 180); // 予約日時
     sh.setColumnWidth(5, 120); // 保護者氏名
     sh.setColumnWidth(6, 200); // 連絡事項
 
-    sh.setColumnWidth(8, 30);  // 区切り列 (H列)
+    sh.setColumnWidth(8, 30);  // 区切り列(H)
 
     sh.setColumnWidth(9, 110);  // 日付
     sh.setColumnWidth(10, 110); // 時間
@@ -307,8 +340,14 @@ function rebuildClassSheets() {
     sh.setColumnWidth(12, 70);  // 出席番号
     sh.setColumnWidth(13, 120); // 生徒氏名
     sh.setColumnWidth(14, 120); // 保護者氏名
-    sh.setColumnWidth(15, 200); // 連絡事項
+    sh.setColumnWidth(15, 100); // 予約コード(O列)
   }
+
+  // 旧「生徒名簿」シートが残っている場合は自動削除
+  if (oldSh) {
+    try { ss.deleteSheet(oldSh); } catch (e) { /* 無視 */ }
+  }
+
   return classes.length;
 }
 

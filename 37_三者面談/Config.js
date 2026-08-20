@@ -7,7 +7,7 @@
  */
 
 /** Antigravity 管理バージョン */
-var VERSION = '1.3.0';
+var VERSION = '1.5.0';
 
 /** 対象スプレッドシート。バインドでも単体スクリプトでも動くよう ID を明示する。 */
 var SPREADSHEET_ID = '1nvbdoNcZvwCrPi48GdxG_Q6eveCBDvk9s7HF4V10BM0';
@@ -17,7 +17,6 @@ var SH = {
   CONFIG: '設定',
   DAYS: '面談日',
   CLASSES: 'クラス',
-  ROSTER: '生徒名簿',
   SLOTS: '枠マスタ',
   OVERVIEW: '全体ビュー',
   LOG: '予約ログ'
@@ -189,16 +188,47 @@ function getDays() {
   return out;
 }
 
-/** 生徒名簿 [{cls, no, name}] */
+/** 
+ * 各クラスの「予約表_〇組」シートのA・B列から生徒名簿を取得 [{cls, no, name}]
+ */
 function getRoster() {
-  var values = sheet_(SH.ROSTER).getDataRange().getValues();
+  var classes = getClasses();
+  var ss = ss_();
   var out = [];
-  for (var i = 1; i < values.length; i++) {
-    var cls = String(values[i][0] || '').trim();
-    var name = String(values[i][2] || '').trim();
-    if (!cls || !name) continue;
-    out.push({ cls: cls, no: Number(values[i][1]) || 0, name: name });
+
+  for (var c = 0; c < classes.length; c++) {
+    var clsName = classes[c].name;
+    var sheetName = '予約表_' + clsName;
+    var sh = ss.getSheetByName(sheetName);
+    if (!sh) continue;
+
+    var lastRow = sh.getLastRow();
+    if (lastRow < 2) continue;
+
+    var vals = sh.getRange(2, 1, lastRow - 1, 2).getValues();
+    for (var i = 0; i < vals.length; i++) {
+      var no = Number(vals[i][0]);
+      var name = String(vals[i][1] || '').trim();
+      if (no && name) {
+        out.push({ cls: clsName, no: no, name: name });
+      }
+    }
   }
+
+  // 旧「生徒名簿」シートがまだ存在する場合のバックアップフォールバック
+  if (!out.length) {
+    var oldSh = ss.getSheetByName('生徒名簿');
+    if (oldSh && oldSh.getLastRow() >= 2) {
+      var oldVals = oldSh.getRange(2, 1, oldSh.getLastRow() - 1, 3).getValues();
+      for (var k = 0; k < oldVals.length; k++) {
+        var oCls = String(oldVals[k][0] || '').trim();
+        var oNo = Number(oldVals[k][1]) || 0;
+        var oName = String(oldVals[k][2] || '').trim();
+        if (oCls && oName) out.push({ cls: oCls, no: oNo, name: oName });
+      }
+    }
+  }
+
   return out;
 }
 

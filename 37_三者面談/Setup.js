@@ -43,13 +43,33 @@ function setupSystem() {
   created = created.concat(ensureConfigSheet_(ss));
   created = created.concat(ensureTableSheet_(ss, SH.DAYS, ['日付', '備考', '実施する'], DEFAULT_DAYS));
   created = created.concat(ensureTableSheet_(ss, SH.CLASSES, ['クラス', '担任名', '担任メール'], DEFAULT_CLASSES));
-  created = created.concat(ensureTableSheet_(ss, SH.ROSTER, ['クラス', '出席番号', '生徒氏名', '備考'], []));
   created = created.concat(ensureTableSheet_(ss, SH.LOG, ['日時', '操作', '枠ID', 'クラス', '出席番号', '生徒氏名', '詳細'], []));
   created = created.concat(ensureSlotSheet_(ss));
 
   if (!ss.getSheetByName(SH.OVERVIEW)) {
     ss.insertSheet(SH.OVERVIEW);
     created.push(SH.OVERVIEW);
+  }
+
+  // 旧「生徒名簿」シートが残っている場合はクリーンアップ削除
+  var oldRoster = ss.getSheetByName('生徒名簿');
+  if (oldRoster) {
+    try { ss.deleteSheet(oldRoster); } catch (e) { /* 無視 */ }
+  }
+
+  // 各クラスの「予約表_〇組」シートを準備・初期作成
+  var classes = getClasses();
+  for (var c = 0; c < classes.length; c++) {
+    var name = '予約表_' + classes[c].name;
+    if (!ss.getSheetByName(name)) {
+      var sh = ss.insertSheet(name);
+      created.push(name);
+      var headerLeft = ['出席番号', '生徒氏名', '予約状況', '予約日時', '保護者氏名', '連絡事項'];
+      var headerRight = ['日付', '時間', '状態', '出席番号', '生徒氏名', '保護者氏名', '予約コード'];
+      sh.getRange(1, 1, 1, headerLeft.length).setValues([headerLeft]).setFontWeight('bold').setBackground('#d9ead3');
+      sh.getRange(1, 9, 1, headerRight.length).setValues([headerRight]).setFontWeight('bold').setBackground('#e8eaed');
+      sh.setFrozenRows(1);
+    }
   }
 
   // 日付列を日付書式に
@@ -118,41 +138,51 @@ function styleHeader_(sh, cols) {
 }
 
 /**
- * テスト用ダミー生徒データ10名を「生徒名簿」シートに追加生成し、
- * 枠が未生成の場合は自動で枠も生成する。
+ * テスト用ダミー生徒データ10名を「予約表_1組」シートのA・B列に書き込み、
+ * 枠と予約表ビューを更新する。
  * @return {{count:number, slotsCreated:boolean}}
  */
 function generateDummyRoster() {
   setupSystem();
-  var sh = sheet_(SH.ROSTER);
-  var dummyData = [
-    ['1組', 1, '佐藤 勝利', 'ダミー生徒'],
-    ['1組', 2, '鈴木 一朗', 'ダミー生徒'],
-    ['1組', 3, '高橋 咲', 'ダミー生徒'],
-    ['1組', 4, '田中 蓮', 'ダミー生徒'],
-    ['1組', 5, '伊藤 結衣', 'ダミー生徒'],
-    ['1組', 6, '渡辺 翔太', 'ダミー生徒'],
-    ['1組', 7, '山本 凛', 'ダミー生徒'],
-    ['1組', 8, '中村 陽翔', 'ダミー生徒'],
-    ['1組', 9, '小林 葵', 'ダミー生徒'],
-    ['1組', 10, '加藤 陸', 'ダミー生徒']
+  var ss = ss_();
+  var sh = ss.getSheetByName('予約表_1組');
+  if (!sh) {
+    sh = ss.insertSheet('予約表_1組');
+    var headerLeft = ['出席番号', '生徒氏名', '予約状況', '予約日時', '保護者氏名', '連絡事項'];
+    var headerRight = ['日付', '時間', '状態', '出席番号', '生徒氏名', '保護者氏名', '予約コード'];
+    sh.getRange(1, 1, 1, headerLeft.length).setValues([headerLeft]).setFontWeight('bold').setBackground('#d9ead3');
+    sh.getRange(1, 9, 1, headerRight.length).setValues([headerRight]).setFontWeight('bold').setBackground('#e8eaed');
+    sh.setFrozenRows(1);
+  }
+
+  var dummyRoster = [
+    [1, '佐藤 勝利'],
+    [2, '鈴木 一朗'],
+    [3, '高橋 咲'],
+    [4, '田中 蓮'],
+    [5, '伊藤 結衣'],
+    [6, '渡辺 翔太'],
+    [7, '山本 凛'],
+    [8, '中村 陽翔'],
+    [9, '小林 葵'],
+    [10, '加藤 陸']
   ];
-  
-  var lastRow = sh.getLastRow();
-  sh.getRange(lastRow + 1, 1, dummyData.length, 4).setValues(dummyData);
+
+  sh.getRange(2, 1, dummyRoster.length, 2).setValues(dummyRoster);
 
   var slotsCreated = false;
   var slotSh = sheet_(SH.SLOTS);
   if (slotSh.getLastRow() < 2) {
     try {
       generateSlots();
-      rebuildOverview();
-      rebuildClassSheets();
       slotsCreated = true;
     } catch (e) {
       console.warn('自動枠生成スキップ:', e);
     }
   }
 
-  return { count: dummyData.length, slotsCreated: slotsCreated };
+  rebuildOverview();
+  rebuildClassSheets();
+
+  return { count: dummyRoster.length, slotsCreated: slotsCreated };
 }
