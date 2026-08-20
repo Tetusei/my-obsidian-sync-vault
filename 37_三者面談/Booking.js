@@ -253,7 +253,7 @@ function withLock_(fn) {
   }
 }
 
-/** 名簿と照合する。合わなければ例外。保護者へはシステムエラーを見せない。 */
+/** 名簿と照合する。合わなければ例外。保護者へは親切な案内文を出す。 */
 function verifyStudent_(p, cfg) {
   var cls = String((p && p.cls) || '').trim();
   var no = Number((p && p.no) || 0);
@@ -278,15 +278,15 @@ function verifyStudent_(p, cfg) {
     foundNo = true;
     if (cfg.checkName && norm_(roster[i].name) !== norm_(name)) {
       countFailure_(cls + '_' + no);
-      throw new Error('出席番号と氏名が名簿と一致しません。姓と名の間のスペースは無くても構いません。ご不明な場合は担任までご連絡ください。');
+      throw new Error('出席番号と氏名が名簿と一致しません。姓と名の間のスペースは無くても構いません。お子様に再度、出席番号をご確認ください。そのあと、ご不明な場合は担任までご連絡ください。');
     }
     return roster[i];
   }
   countFailure_(cls + '_' + no);
   if (foundNo) {
-    throw new Error('出席番号と氏名が名簿と一致しません。姓と名の間のスペースは無くても構いません。ご不明な場合は担任までご連絡ください。');
+    throw new Error('出席番号と氏名が名簿と一致しません。姓と名の間のスペースは無くても構いません。お子様に再度、出席番号をご確認ください。そのあと、ご不明な場合は担任までご連絡ください。');
   }
-  throw new Error('名簿に見つかりませんでした。クラスと出席番号をご確認ください。');
+  throw new Error('名簿に見つかりませんでした。クラスと出席番号をご確認ください。お子様に再度、出席番号をご確認いただくか、担任までご連絡ください。');
 }
 
 function findBookingByCode_(student, code) {
