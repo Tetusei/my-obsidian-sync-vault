@@ -57,11 +57,11 @@
     .grid-day { margin-bottom: 16px; }
     .grid-day-title { font-weight: 700; font-size: .95rem; margin: 0 0 8px; padding: 4px 8px; background: #e8eaed; border-radius: 4px; }
     .slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
-    .slot { padding: 10px 6px; text-align: center; border-radius: 6px; border: 1px solid var(--border); font-size: .9rem; }
-    .slot.open { background: var(--open-bg); color: var(--open-color); border-color: var(--open-border); cursor: pointer; font-weight: 600; }
-    .slot.open:hover { background: #ceead6; }
-    .slot.mine { background: var(--mine-bg); color: var(--mine-color); border-color: var(--mine-border); font-weight: 700; }
-    .slot.full { background: var(--full-bg); color: var(--full-color); cursor: not-allowed; }
+    button.slot { width: 100%; padding: 10px 6px; text-align: center; border-radius: 6px; border: 1px solid var(--border); font-size: .9rem; background: #fff; outline: none; }
+    button.slot.open { background: var(--open-bg); color: var(--open-color); border-color: var(--open-border); cursor: pointer; font-weight: 600; }
+    button.slot.open:hover { background: #ceead6; }
+    button.slot.mine { background: var(--mine-bg); color: var(--mine-color); border-color: var(--mine-border); font-weight: 700; cursor: default; }
+    button.slot.full { background: var(--full-bg); color: var(--full-color); cursor: not-allowed; }
 
     .kv { display: grid; grid-template-columns: 100px 1fr; gap: 8px; font-size: .92rem; margin: 12px 0; }
     .kv dt { color: var(--subtext); font-weight: 600; }
@@ -256,7 +256,7 @@
         msg('slotInfo', r.student.cls + '　' + r.student.no + '番　' + r.student.name + 'さん' +
           (r.teacher ? '（担任: ' + r.teacher + '）' : '') + '\n緑色の時間から1つ選んでください。', 'ok');
       }
-      renderSlots(el('slotList'), r.days, !r.existing, pickSlot);
+      renderSlots(el('slotList'), r.days, !r.existing, 'pickSlot');
       show('stepId', false); show('stepSlots', true); show('stepConfirm', false); show('stepDone', false);
       window.scrollTo(0, 0);
     }).catch(function (e) {
@@ -265,23 +265,28 @@
     });
   }
 
-  function renderSlots(container, days, clickable, onPick) {
+  function renderSlots(container, days, clickable, fnNameStr) {
     if (!days || !days.length) {
       container.innerHTML = '<div class="msg warn">現在選択できる面談枠が登録されていません。<br>（スプレッドシートのメニュー「三者面談 ▸ ② 枠を再生成」を実行して枠を作成してください）</div>';
       return;
     }
+    var fnName = typeof fnNameStr === 'string' ? fnNameStr : 'pickSlot';
     var html = '';
     days.forEach(function (d) {
       html += '<div class="grid-day"><div class="grid-day-title">' + esc(d.dateLabel) + '</div><div class="slots">';
       d.slots.forEach(function (s) {
         var cls = 'slot ';
         var text = s.start + '–' + s.end;
+        var isClickable = s.available && clickable;
+
         if (s.mine) { cls += 'mine'; text += '<br>（予約中）'; }
         else if (s.available) { cls += 'open'; }
         else { cls += 'full'; text += '<br>（受付終了）'; }
 
-        var onclick = (s.available && clickable) ? 'onclick="' + onPick + '(\'' + s.slotId + '\',\'' + esc(d.dateLabel) + '\',\'' + s.start + '\',\'' + s.end + '\')"' : '';
-        html += '<div class="' + cls + '" ' + onclick + '>' + text + '</div>';
+        var onclickAttr = isClickable ? 'onclick="' + fnName + '(\'' + s.slotId + '\',\'' + esc(d.dateLabel) + '\',\'' + s.start + '\',\'' + s.end + '\')"' : '';
+        var disabledAttr = isClickable ? '' : 'disabled';
+
+        html += '<button type="button" class="' + cls + '" ' + onclickAttr + ' ' + disabledAttr + '>' + text + '</button>';
       });
       html += '</div></div>';
     });
@@ -390,7 +395,7 @@
     busy('btnStartChange', true, null, 'mViewErr');
     call('apiSlots', p).then(function (r) {
       busy('btnStartChange', false, 'この予約を変更する');
-      renderSlots(el('mChangeSlots'), r.days, true, pickChangeSlot);
+      renderSlots(el('mChangeSlots'), r.days, true, 'pickChangeSlot');
       show('mStepView', false); show('mStepChange', true);
     }).catch(function (e) {
       busy('btnStartChange', false, 'この予約を変更する');
