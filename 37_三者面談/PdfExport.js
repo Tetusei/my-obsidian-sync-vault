@@ -63,7 +63,7 @@ function exportCurrentClassPdf(targetClsName) {
 }
 
 /**
- * 1クラス分の2ページPDFを作成する内部関数
+ * 1クラス分の2ページPDFを作成する内部関数（A4縦レイアウト）
  */
 function exportSingleClassPdf_(clsName, folder, nowStr, fileDateStr) {
   var ss = ss_();
@@ -87,11 +87,11 @@ function exportSingleClassPdf_(clsName, folder, nowStr, fileDateStr) {
     p1Sheet.getRange(1, 1, 1, 6).merge()
       .setValue('【' + clsName + '】三者面談 生徒別予約状況一覧　（作成日時: ' + nowStr + '）')
       .setFontWeight('bold')
-      .setFontSize(13)
+      .setFontSize(12)
       .setBackground('#cfe2f3')
       .setHorizontalAlignment('center')
       .setVerticalAlignment('middle');
-    p1Sheet.setRowHeight(1, 35);
+    p1Sheet.setRowHeight(1, 32);
 
     // 左の表（A1:F{lastRow}）のデータとスタイルをコピー
     var leftRange = sh.getRange(1, 1, lastRow, 6);
@@ -104,16 +104,17 @@ function exportSingleClassPdf_(clsName, folder, nowStr, fileDateStr) {
     p1Sheet.getRange(2, 1, lastRow, 6).setBackgrounds(leftBgs);
     p1Sheet.getRange(2, 1, lastRow, 6).setFontWeights(leftWeights);
     p1Sheet.getRange(2, 1, lastRow, 6).setHorizontalAlignments(leftAligns);
+    p1Sheet.getRange(2, 1, lastRow, 6).setWrap(true).setVerticalAlignment('middle');
     p1Sheet.getRange(2, 1, lastRow, 6).setBorder(true, true, true, true, true, true, '#b7b7b7', SpreadsheetApp.BorderStyle.SOLID);
     p1Sheet.getRange(2, 1, 1, 6).setBorder(true, true, true, true, true, true, '#5f6368', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
 
-    // 列幅設定
-    p1Sheet.setColumnWidth(1, 65);  // 出席番号
-    p1Sheet.setColumnWidth(2, 120); // 生徒氏名
-    p1Sheet.setColumnWidth(3, 80);  // 予約状況
-    p1Sheet.setColumnWidth(4, 180); // 予約日時
-    p1Sheet.setColumnWidth(5, 120); // 保護者氏名
-    p1Sheet.setColumnWidth(6, 220); // 連絡事項
+    // A4縦向けの列幅設定
+    p1Sheet.setColumnWidth(1, 45);  // 出席番号
+    p1Sheet.setColumnWidth(2, 95);  // 生徒氏名
+    p1Sheet.setColumnWidth(3, 60);  // 予約状況
+    p1Sheet.setColumnWidth(4, 130); // 予約日時
+    p1Sheet.setColumnWidth(5, 95);  // 保護者氏名
+    p1Sheet.setColumnWidth(6, 150); // 連絡事項
 
     // 2ページ目: 時間枠別 予約表
     var p2Sheet = tempSs.insertSheet('時間枠別予約表');
@@ -122,11 +123,11 @@ function exportSingleClassPdf_(clsName, folder, nowStr, fileDateStr) {
     p2Sheet.getRange(1, 1, 1, 7).merge()
       .setValue('【' + clsName + '】三者面談 時間枠別予約一覧　（作成日時: ' + nowStr + '）')
       .setFontWeight('bold')
-      .setFontSize(13)
+      .setFontSize(12)
       .setBackground('#d9d2e9')
       .setHorizontalAlignment('center')
       .setVerticalAlignment('middle');
-    p2Sheet.setRowHeight(1, 35);
+    p2Sheet.setRowHeight(1, 32);
 
     // 右の表（I1:O{lastRow}）のデータとスタイルをコピー
     var rightRange = sh.getRange(1, 9, lastRow, 7);
@@ -139,6 +140,7 @@ function exportSingleClassPdf_(clsName, folder, nowStr, fileDateStr) {
     p2Sheet.getRange(2, 1, lastRow, 7).setBackgrounds(rightBgs);
     p2Sheet.getRange(2, 1, lastRow, 7).setFontWeights(rightWeights);
     p2Sheet.getRange(2, 1, lastRow, 7).setHorizontalAlignments(rightAligns);
+    p2Sheet.getRange(2, 1, lastRow, 7).setWrap(true).setVerticalAlignment('middle');
     p2Sheet.getRange(2, 1, lastRow, 7).setBorder(true, true, true, true, true, true, '#b7b7b7', SpreadsheetApp.BorderStyle.SOLID);
     p2Sheet.getRange(2, 1, 1, 7).setBorder(true, true, true, true, true, true, '#5f6368', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
 
@@ -152,24 +154,24 @@ function exportSingleClassPdf_(clsName, folder, nowStr, fileDateStr) {
       }
     }
 
-    // 列幅設定
-    p2Sheet.setColumnWidth(1, 110); // 日付
-    p2Sheet.setColumnWidth(2, 110); // 時間
-    p2Sheet.setColumnWidth(3, 70);  // 状態
-    p2Sheet.setColumnWidth(4, 70);  // 出席番号
-    p2Sheet.setColumnWidth(5, 120); // 生徒氏名
-    p2Sheet.setColumnWidth(6, 120); // 保護者氏名
-    p2Sheet.setColumnWidth(7, 90);  // 予約コード
+    // A4縦向けの列幅設定
+    p2Sheet.setColumnWidth(1, 85); // 日付
+    p2Sheet.setColumnWidth(2, 85); // 時間
+    p2Sheet.setColumnWidth(3, 50); // 状態
+    p2Sheet.setColumnWidth(4, 45); // 出席番号
+    p2Sheet.setColumnWidth(5, 95); // 生徒氏名
+    p2Sheet.setColumnWidth(6, 95); // 保護者氏名
+    p2Sheet.setColumnWidth(7, 65); // 予約コード
 
     SpreadsheetApp.flush();
 
-    // PDFエクスポートパラメータ（A4横、幅にフィット、全シート出力）
+    // PDFエクスポートパラメータ（A4縦、幅にフィット、全シート出力）
     var url = 'https://docs.google.com/spreadsheets/d/' + tempSsId + '/export?' +
       'exportFormat=pdf&format=pdf' +
       '&size=A4' +
-      '&portrait=false' +      // 横向き
+      '&portrait=true' +       // ★ A4縦向き
       '&fitw=true' +           // 幅に合わせる
-      '&gridlines=false' +     // デフォルト枠線はOFF（明示的な罫線を使用）
+      '&gridlines=false' +     // デフォルト枠線OFF
       '&printtitle=false' +
       '&sheetnames=false' +
       '&fzr=false';
@@ -229,7 +231,7 @@ function showPdfCompleteDialog_(res) {
     'button.btn-close:hover { text-decoration: underline; }' +
     '</style></head><body>' +
     '<h2>📄 PDFの作成が完了しました</h2>' +
-    '<p><strong>【' + res.className + '】</strong>の予約表PDFを作成しました。</p>' +
+    '<p><strong>【' + res.className + '】</strong>の予約表PDF（A4縦）を作成しました。</p>' +
     '<div class="filename">📎 ' + res.fileName + '</div>' +
     '<div class="btn-group">' +
     '<a class="btn btn-primary" href="' + res.fileUrl + '">📄 作成したPDFを開く</a>' +
@@ -261,7 +263,7 @@ function showAllPdfCompleteDialog_(res) {
     'button.btn-close:hover { text-decoration: underline; }' +
     '</style></head><body>' +
     '<h2>📄 全クラスPDF作成完了</h2>' +
-    '<p>全 <strong>' + res.count + '</strong> クラス分の予約表PDFを作成しました。</p>' +
+    '<p>全 <strong>' + res.count + '</strong> クラス分の予約表PDF（A4縦）を作成しました。</p>' +
     '<div class="folder-box">📁 保存先: <strong>' + res.folderName + '</strong> フォルダ</div>' +
     '<div class="btn-group">' +
     '<a class="btn btn-primary" href="' + res.folderUrl + '">📁 保存先フォルダを開く</a>' +
