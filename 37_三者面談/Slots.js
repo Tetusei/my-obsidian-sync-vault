@@ -368,6 +368,22 @@ function rebuildClassSheets() {
   }
 }
 
+/** 未予約の生徒一覧 [{cls, no, name}] */
+function unbookedStudents(clsFilter) {
+  var roster = getRoster();
+  var slots = readSlots_();
+  var booked = {};
+  for (var i = 0; i < slots.length; i++) {
+    var v = slots[i].v;
+    if (String(v[COL.STATUS - 1]) !== STATUS.BOOKED) continue;
+    booked[String(v[COL.CLASS - 1]) + '#' + Number(v[COL.NUMBER - 1])] = true;
+  }
+  return roster.filter(function (s) {
+    if (clsFilter && s.cls !== clsFilter) return false;
+    return !booked[s.cls + '#' + s.no];
+  });
+}
+
 /** キャッシュされた空き枠を読む */
 function readSlotsCached_() {
   var cache = CacheService.getScriptCache();
