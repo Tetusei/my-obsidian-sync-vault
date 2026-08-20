@@ -198,6 +198,13 @@ function rebuildOverview() {
   }
 
   var sh = ss_().getSheetByName(SH.OVERVIEW) || ss_().insertSheet(SH.OVERVIEW);
+  
+  // ★ 固定列・固定行を一旦リセットしてからクリア（結合エラー防止）
+  try {
+    sh.setFrozenRows(0);
+    sh.setFrozenColumns(0);
+  } catch (e) { /* 無視 */ }
+
   sh.clear();
 
   // 1行目: 進捗サマリーバナー
@@ -233,8 +240,11 @@ function rebuildOverview() {
   sh.setColumnWidth(1, 110);
   sh.setColumnWidth(2, 120);
   for (var colIdx = 0; colIdx < classes.length; colIdx++) sh.setColumnWidth(3 + colIdx, 150);
+
+  // 上部2行（サマリーバナー＋見出し）のみ固定表示
   sh.setFrozenRows(2);
-  sh.setFrozenColumns(2);
+  sh.setFrozenColumns(0);
+
   return body.length;
 }
 
@@ -335,6 +345,11 @@ function rebuildClassSheets() {
       var bg = statusStr === STATUS.OPEN ? '#e6f4ea' : (statusStr === STATUS.BLOCKED ? '#f1f3f4' : '#ffffff');
       colorsRight.push([bg, bg, bg, bg, bg, bg, bg]);
     }
+
+    try {
+      sh.setFrozenRows(0);
+      sh.setFrozenColumns(0);
+    } catch (e) { /* 無視 */ }
 
     sh.clear();
 
