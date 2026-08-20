@@ -1,81 +1,84 @@
 /**
- * 枠マスタの生成と、閲覧用シート(全体ビュー / クラス別予約表)の再構築。
+ * 面談枠の自動生成・再生成と、全体ビュー・各クラス予約表の更新。
  */
 
 var CLASS_SHEET_PREFIX = '予約表_';
 
-/** 1日分の枠の時刻を計算する。[{index, start, end}] */
-function daySlotTimes_(cfg) {
-  var out = [];
-  var cycle = cfg.slotMin + cfg.breakMin;
-  for (var i = 0; i < cfg.slotsPerDay; i++) {
-    var s = cfg.startMin + cycle * i;
-    out.push({ index: i + 1, start: fromMinutes_(s), end: fromMinutes_(s + cfg.slotMin) });
-  }
-  return out;
-}
-
-function makeSlotId_(date, cls, slotIndex) {
-  return ymdCompact_(date) + '_' + String(cls).replace(/[\s　]/g, '') + '_' + slotIndex;
-}
-
 /**
- * 設定・面談日・クラスから枠マスタを作り直す。
- * 予約済/ブロックの内容は枠IDが一致する限り引き継ぐ。
- * 引き継げない予約がある場合は何も書き換えずに中止する。
+ * 「面談日」「設定」「クラス」から面談枠を一括生成する。
+ * 既存の予約がある場合は枠IDで引き継ぎ、無くなったらエラーにする。
  * @return {{written:number, kept:number}}
  */
 function generateSlots() {
   var cfg = getConfig();
   var days = getDays();
   var classes = getClasses();
-  if (!days.length) throw new Error('「面談日」シートに、実施するにチェックの入った日付がありません。');
-  if (!classes.length) throw new Error('「クラス」シートにクラスが登録されていません。');
+  if (!days.length) throw new Error('「面談日」シートで「実施する」がTRUEの日付が1つもありません。');
+  if (!classes.length) throw new Error('「クラス」シートにクラス名を入力してください。');
 
-  var sh = sheet_(SH.SLOTS);
-  var existing = {};
-  var last = sh.getLastRow();
-  if (last >= 2) {
-    var cur = sh.getRange(2, 1, last - 1, SLOT_LAST_COL).getValues();
-    for (var i = 0; i < cur.length; i++) {
-      var id = String(cur[i][COL.SLOT_ID - 1] || '').trim();
-      if (id) existing[id] = cur[i];
-    }
+  var existing = readSlots_();
+  var existingMap = {};
+  var lost = [];
+  for (var i = 0; i < existing.length; i++) {
+    var v = existing[i].v;
+    var id = String(v[COL.SLOT_ID - 1]);
+    existingMap[id] = v;
   }
 
   var times = daySlotTimes_(cfg);
+  var newSlotIds = {};
   var rows = [];
-  var seen = {};
   var kept = 0;
 
   for (var d = 0; d < days.length; d++) {
-    for (var t = 0; t < times.length; t++) {
-      for (var c = 0; c < classes.length; c++) {
-        var cls = classes[c];
-        var id = makeSlotId_(days[d], cls.name, times[t].index);
-        seen[id] = true;
-        var prev = existing[id];
-        var row = [
-          id, days[d], times[t].start, times[t].end, cls.name, cls.teacher,
-          STATUS.OPEN, '', '', '', '', '', ''
-        ];
-        if (prev && String(prev[COL.STATUS - 1]) !== STATUS.OPEN) {
-          for (var k = COL.STATUS - 1; k < SLOT_LAST_COL; k++) row[k] = prev[k];
-          kept++;
+    for (var c = 0; c < classes.length; c++) {
+      for (var t = 0; t < times.length; t++) {
+        var slotId = makeSlotId_(days[d], classes[c].name, times[t].index);
+        newSlotIds[slotId] = true;
+        var old = existingMap[slotId];
+
+        if (old) {
+          rows.push([
+            slotId,
+            days[d],
+            times[t].start,
+            times[t].end,
+            classes[c].name,
+            classes[c].teacher || '',
+            old[COL.STATUS - 1],
+            old[COL.NUMBER - 1] || '',
+            old[COL.STUDENT - 1] || '',
+            old[COL.GUARDIAN - 1] || '',
+            old[COL.NOTE - 1] || '',
+            old[COL.CODE - 1] || '',
+            old[COL.BOOKED_AT - 1] || ''
+          ]);
+          if (String(old[COL.STATUS - 1]) === STATUS.BOOKED) kept++;
+        } else {
+          rows.push([
+            slotId,
+            days[d],
+            times[t].start,
+            times[t].end,
+            classes[c].name,
+            classes[c].teacher || '',
+            STATUS.OPEN,
+            '', '', '', '', '', ''
+          ]);
         }
-        rows.push(row);
       }
     }
   }
 
-  // 消える枠に予約が入っていないか確認
-  var lost = [];
-  for (var id2 in existing) {
-    if (seen[id2]) continue;
-    if (String(existing[id2][COL.STATUS - 1]) === STATUS.BOOKED) {
-      lost.push(id2 + '（' + existing[id2][COL.STUDENT] + '）');
+  for (var k = 0; k < existing.length; k++) {
+    var ev = existing[k].v;
+    var eid = String(ev[COL.SLOT_ID - 1]);
+    if (!newSlotIds[eid] && String(ev[COL.STATUS - 1]) === STATUS.BOOKED) {
+      lost.push(dateLabel_(ev[COL.DATE - 1]) + ' ' + ev[COL.START - 1] + ' ' +
+        ev[COL.CLASS - 1] + ' ' + ev[COL.NUMBER - 1] + '. ' + ev[COL.STUDENT - 1]);
     }
   }
+
   if (lost.length) {
     throw new Error(
       '次の枠に予約が入っているため再生成を中止しました。先に予約を取り消すか、面談日・クラス・枠数の設定を戻してください。\n' +
@@ -83,6 +86,7 @@ function generateSlots() {
     );
   }
 
+  var sh = sheet_(SH.SLOTS);
   if (sh.getLastRow() >= 2) {
     sh.getRange(2, 1, sh.getLastRow() - 1, SLOT_LAST_COL).clearContent();
   }
@@ -142,7 +146,7 @@ function rebuildOverview() {
         }
         var st = String(v[COL.STATUS - 1]);
         if (st === STATUS.BOOKED) {
-          line.push(v[COL.NUMBER] + '. ' + v[COL.STUDENT]);
+          line.push(v[COL.NUMBER - 1] + '. ' + v[COL.STUDENT - 1]);
           lineColor.push('#ffffff');
         } else if (st === STATUS.BLOCKED) {
           line.push('×');
@@ -169,7 +173,7 @@ function rebuildOverview() {
     sh.getRange(2, 1, body.length, header.length).setValues(body);
     sh.getRange(2, 1, body.length, header.length).setBackgrounds(colors);
     sh.getRange(2, 1, body.length, header.length).setHorizontalAlignment('center');
-    // 日付が変わるところに罫線
+    // 日付が変わるところに中太罫線
     for (var r = 0; r < body.length; r += times.length) {
       sh.getRange(r + 2, 1, 1, header.length).setBorder(true, null, null, null, null, null, '#5f6368', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
     }
@@ -185,7 +189,7 @@ function rebuildOverview() {
 /** 
  * クラスごとの予約表シートを作り直す（各クラスシートを直接マスターとして保持）
  * 左側(A-F): 【生徒別 予約状況（出席番号順）】 - 生徒名簿直接管理
- * 右側(I-O): 【時間枠別 予約表（時間順）】 - O列に4桁の「予約コード」を表示
+ * 右側(I-O): 【時間枠別 予約表（時間順）】 - O列に4桁の「予約コード」を表示・日付ごとに区切り線
  */
 function rebuildClassSheets() {
   var ss = ss_();
@@ -276,15 +280,23 @@ function rebuildClassSheets() {
       }
     }
 
-    // 右側 (I〜O): 時間枠別 予約表 (O列に予約コード)
+    // 右側 (I〜O): 時間枠別 予約表 (O列に予約コード・日付の切り替わりインデックス記録)
     var bodyRight = [];
     var colorsRight = [];
+    var dateBoundaries = [];
+    var prevDate = '';
+
     for (var j = 0; j < slots.length; j++) {
       var sv = slots[j].v;
       if (String(sv[COL.CLASS - 1]) !== clsName) continue;
+      var curDate = dateLabel_(sv[COL.DATE - 1]);
+      if (curDate !== prevDate) {
+        dateBoundaries.push(bodyRight.length); // 切り替わり行（0始まり）
+        prevDate = curDate;
+      }
       var statusStr = String(sv[COL.STATUS - 1]);
       bodyRight.push([
-        dateLabel_(sv[COL.DATE - 1]),
+        curDate,
         sv[COL.START - 1] + '–' + sv[COL.END - 1],
         statusStr,
         sv[COL.NUMBER - 1] || '',
@@ -321,6 +333,13 @@ function rebuildClassSheets() {
     if (bodyRight.length) {
       sh.getRange(2, 9, bodyRight.length, headerRight.length).setValues(bodyRight);
       sh.getRange(2, 9, bodyRight.length, headerRight.length).setBackgrounds(colorsRight);
+
+      // 日ちにちごとの境界線（中太上罫線 #5f6368）を描画
+      for (var bIdx = 0; bIdx < dateBoundaries.length; bIdx++) {
+        var rNum = dateBoundaries[bIdx] + 2; // シート上の行番号
+        sh.getRange(rNum, 9, 1, headerRight.length)
+          .setBorder(true, null, null, null, null, null, '#5f6368', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+      }
     }
 
     // 列幅と固定
@@ -347,55 +366,56 @@ function rebuildClassSheets() {
   if (oldSh) {
     try { ss.deleteSheet(oldSh); } catch (e) { /* 無視 */ }
   }
-
-  return classes.length;
 }
 
-/** まだ予約していない生徒の一覧 [{cls, no, name}] */
-function unbookedStudents(clsFilter) {
-  var roster = getRoster();
-  var slots = readSlots_();
-  var booked = {};
-  for (var i = 0; i < slots.length; i++) {
-    var v = slots[i].v;
-    if (String(v[COL.STATUS - 1]) !== STATUS.BOOKED) continue;
-    booked[v[COL.CLASS - 1] + '#' + Number(v[COL.NUMBER - 1])] = true;
-  }
-  return roster.filter(function (s) {
-    if (clsFilter && s.cls !== clsFilter) return false;
-    return !booked[s.cls + '#' + s.no];
-  });
-}
-
-var SLOT_CACHE_KEY = 'slots_public';
-var SLOT_CACHE_SEC = 15;
-
-/**
- * 空き枠一覧の表示だけが使う短時間キャッシュ。
- * 予約の確定は readSlots_() で読み直したうえでロック内で状態を再確認するので、
- * ここが数秒古くても二重予約にはならない（「ちょうど埋まりました」と案内される）。
- * 日付は JSON 化で1日ずれないよう yyyy-MM-dd 文字列に直して保存する。
- */
+/** キャッシュされた空き枠を読む */
 function readSlotsCached_() {
   var cache = CacheService.getScriptCache();
-  var hit = cache.get(SLOT_CACHE_KEY);
+  var hit = cache.get('all_slots_v1');
   if (hit) {
-    try { return JSON.parse(hit); } catch (e) { /* 壊れていたら読み直す */ }
+    try { return JSON.parse(hit); } catch (e) { /* ignore */ }
   }
-  var data = readSlots_();
-  var plain = data.map(function (s) {
-    var v = s.v.slice();
-    v[COL.DATE - 1] = ymd_(v[COL.DATE - 1]);
-    return { row: s.row, v: v };
+  var slots = readSlots_();
+  var simple = slots.map(function (s) {
+    return {
+      v: [
+        s.v[COL.SLOT_ID - 1],
+        ymd_(s.v[COL.DATE - 1]),
+        s.v[COL.START - 1],
+        s.v[COL.END - 1],
+        s.v[COL.CLASS - 1],
+        s.v[COL.TEACHER - 1],
+        s.v[COL.STATUS - 1],
+        s.v[COL.NUMBER - 1],
+        s.v[COL.STUDENT - 1],
+        s.v[COL.GUARDIAN - 1],
+        s.v[COL.NOTE - 1],
+        s.v[COL.CODE - 1],
+        s.v[COL.BOOKED_AT - 1]
+      ]
+    };
   });
   try {
-    cache.put(SLOT_CACHE_KEY, JSON.stringify(plain), SLOT_CACHE_SEC);
-  } catch (e) { /* サイズ超過などは無視して素通し */ }
-  return plain;
+    cache.put('all_slots_v1', JSON.stringify(simple), 30);
+  } catch (e) { /* 大きいと入れられないが気にしない */ }
+  return slots;
 }
 
 function clearSlotCache_() {
-  try {
-    CacheService.getScriptCache().remove(SLOT_CACHE_KEY);
-  } catch (e) { /* noop */ }
+  try { CacheService.getScriptCache().remove('all_slots_v1'); } catch (e) { }
+}
+
+function makeSlotId_(date, clsName, idx) {
+  return ymdCompact_(date) + '_' + clsName + '_' + idx;
+}
+
+function daySlotTimes_(cfg) {
+  var times = [];
+  var cur = cfg.startMin;
+  for (var i = 1; i <= cfg.slotsPerDay; i++) {
+    var end = cur + cfg.slotMin;
+    times.push({ index: i, start: fromMinutes_(cur), end: fromMinutes_(end) });
+    cur = end + cfg.breakMin;
+  }
+  return times;
 }
