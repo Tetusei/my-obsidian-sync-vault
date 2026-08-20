@@ -11,7 +11,7 @@ function buildMenu_() {
     .createMenu('三者面談')
     .addItem('① 初期セットアップ', 'menuSetup')
     .addItem('② 枠を再生成', 'menuGenerateSlots')
-    .addItem('③ ダミー生徒10名を作成', 'menuGenerateDummyRoster')
+    .addItem('③ ダミー生徒を作成 (各クラス35名)', 'menuGenerateDummyRoster')
     .addSeparator()
     .addItem('全体ビュー・クラス別予約表を更新', 'menuRefreshViews')
     .addItem('未予約の生徒を表示', 'menuUnbooked')
@@ -48,7 +48,7 @@ function menuSetup() {
     (created.length ? '作成したシート: ' + created.join(', ') : '必要なシートはすべて揃っています。') +
     '\n\n次の順で入力してください。\n' +
     '1. 「クラス」シートに 4クラス分の担任名とメールを入力\n' +
-    '2. 「生徒名簿」シートにクラス・出席番号・生徒氏名を貼り付け\n' +
+    '2. 各「予約表_〇組」シートのA・B列にクラス・出席番号・生徒氏名を張り付け\n' +
     '3. 「面談日」「設定」を確認\n' +
     '4. メニューの「② 枠を再生成」を実行\n' +
     '5. Webアプリをデプロイし、「予約受付を開始する」',
@@ -59,7 +59,7 @@ function menuGenerateDummyRoster() {
   var ui = SpreadsheetApp.getUi();
   try {
     var res = generateDummyRoster();
-    var msg = res.count + ' 名のダミー生徒を「生徒名簿」シートに追加しました。';
+    var msg = '全4クラス分（計 ' + res.count + ' 名）のダミー生徒を各予約表シートのA・B列に追加しました。';
     if (res.slotsCreated) {
       msg += '\n\n※「枠マスタ」シートが空だったため、面談枠も自動的に再生成しました！';
     } else {
@@ -114,8 +114,8 @@ function menuUnblock() { setStatusForSelection_(STATUS.OPEN); }
 function setStatusForSelection_(newStatus) {
   var ui = SpreadsheetApp.getUi();
   var sh = SpreadsheetApp.getActiveSheet();
-  if (sh.getName() !== SH.SLOTS) {
-    ui.alert('「' + SH.SLOTS + '」シートで、対象の行を選んでから実行してください。');
+  if (!sh.getName().startsWith(CLASS_SHEET_PREFIX) && sh.getName() !== SH.SLOTS) {
+    ui.alert('「' + SH.SLOTS + '」シートまたは各「予約表_〇組」シートで、対象の行を選んでから実行してください。');
     return;
   }
   var rng = SpreadsheetApp.getActiveRange();

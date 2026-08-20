@@ -65,7 +65,7 @@ function setupSystem() {
       var sh = ss.insertSheet(name);
       created.push(name);
       var headerLeft = ['出席番号', '生徒氏名', '予約状況', '予約日時', '保護者氏名', '連絡事項'];
-      var headerRight = ['日付', '時間', '状態', '出席番号', '生徒氏名', '保護者氏名', '予約コード'];
+      var headerRight = ['日付', '時間', '状態', '出席番号', '生徒氏name', '保護者氏名', '予約コード'];
       sh.getRange(1, 1, 1, headerLeft.length).setValues([headerLeft]).setFontWeight('bold').setBackground('#d9ead3');
       sh.getRange(1, 9, 1, headerRight.length).setValues([headerRight]).setFontWeight('bold').setBackground('#e8eaed');
       sh.setFrozenRows(1);
@@ -138,37 +138,54 @@ function styleHeader_(sh, cols) {
 }
 
 /**
- * テスト用ダミー生徒データ10名を「予約表_1組」シートのA・B列に書き込み、
- * 枠と予約表ビューを更新する。
+ * 各クラス（1組:35名、2組:35名、3組:35名、4組:35名）のダミー生徒データを
+ * 各クラスの「予約表_〇組」シートのA・B列に自動生成・書き込みする。
  * @return {{count:number, slotsCreated:boolean}}
  */
 function generateDummyRoster() {
   setupSystem();
   var ss = ss_();
-  var sh = ss.getSheetByName('予約表_1組');
-  if (!sh) {
-    sh = ss.insertSheet('予約表_1組');
-    var headerLeft = ['出席番号', '生徒氏名', '予約状況', '予約日時', '保護者氏名', '連絡事項'];
-    var headerRight = ['日付', '時間', '状態', '出席番号', '生徒氏名', '保護者氏名', '予約コード'];
-    sh.getRange(1, 1, 1, headerLeft.length).setValues([headerLeft]).setFontWeight('bold').setBackground('#d9ead3');
-    sh.getRange(1, 9, 1, headerRight.length).setValues([headerRight]).setFontWeight('bold').setBackground('#e8eaed');
-    sh.setFrozenRows(1);
-  }
+  var classes = getClasses();
 
-  var dummyRoster = [
-    [1, '佐藤 勝利'],
-    [2, '鈴木 一朗'],
-    [3, '高橋 咲'],
-    [4, '田中 蓮'],
-    [5, '伊藤 結衣'],
-    [6, '渡辺 翔太'],
-    [7, '山本 凛'],
-    [8, '中村 陽翔'],
-    [9, '小林 葵'],
-    [10, '加藤 陸']
+  var familyNames = [
+    '佐藤', '鈴木', '高橋', '田中', '伊藤', '渡辺', '山本', '中村', '小林', '加藤',
+    '吉田', '山田', '佐々木', '山口', '松本', '井上', '木村', '林', '斎藤', '清水',
+    '山崎', '森', '池田', '橋本', '阿部', '石川', '山下', '中川', '中島', '前田',
+    '藤田', '小川', '岡田', '後藤', '長谷川'
   ];
 
-  sh.getRange(2, 1, dummyRoster.length, 2).setValues(dummyRoster);
+  var firstNames = [
+    '勝利', '一朗', '咲', '蓮', '結衣', '翔太', '凛', '陽翔', '葵', '陸',
+    '悠斗', '陽菜', '奏太', '莉子', '大翔', '結菜', '颯太', '芽依', '樹', '咲良',
+    '蒼', '杏', '湊', '心春', '大和', '楓', '新', '紬', '暖', '澪',
+    '瑛太', '詩', '律', '花', '朝陽'
+  ];
+
+  var totalAdded = 0;
+
+  for (var c = 0; c < classes.length; c++) {
+    var clsName = classes[c].name;
+    var sheetName = '予約表_' + clsName;
+    var sh = ss.getSheetByName(sheetName);
+    if (!sh) {
+      sh = ss.insertSheet(sheetName);
+      var headerLeft = ['出席番号', '生徒氏名', '予約状況', '予約日時', '保護者氏名', '連絡事項'];
+      var headerRight = ['日付', '時間', '状態', '出席番号', '生徒氏名', '保護者氏名', '予約コード'];
+      sh.getRange(1, 1, 1, headerLeft.length).setValues([headerLeft]).setFontWeight('bold').setBackground('#d9ead3');
+      sh.getRange(1, 9, 1, headerRight.length).setValues([headerRight]).setFontWeight('bold').setBackground('#e8eaed');
+      sh.setFrozenRows(1);
+    }
+
+    var dummyList = [];
+    for (var i = 1; i <= 35; i++) {
+      var fn = familyNames[(i - 1 + c * 3) % familyNames.length];
+      var gn = firstNames[(i - 1 + c * 7) % firstNames.length];
+      dummyList.push([i, fn + ' ' + gn]);
+    }
+
+    sh.getRange(2, 1, dummyList.length, 2).setValues(dummyList);
+    totalAdded += dummyList.length;
+  }
 
   var slotsCreated = false;
   var slotSh = sheet_(SH.SLOTS);
@@ -184,5 +201,5 @@ function generateDummyRoster() {
   rebuildOverview();
   rebuildClassSheets();
 
-  return { count: dummyRoster.length, slotsCreated: slotsCreated };
+  return { count: totalAdded, slotsCreated: slotsCreated };
 }
