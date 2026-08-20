@@ -14,7 +14,6 @@ function buildMenu_() {
     .addItem('③ ダミー生徒を作成 (各クラス35名)', 'menuGenerateDummyRoster')
     .addSeparator()
     .addItem('全体ビュー・クラス別予約表を更新', 'menuRefreshViews')
-    .addItem('未予約の生徒を表示', 'menuUnbooked')
     .addSeparator()
     .addItem('選択した枠をブロック（面談を入れない）', 'menuBlock')
     .addItem('選択した枠のブロックを解除', 'menuUnblock')
@@ -92,24 +91,6 @@ function menuRefreshViews() {
   rebuildClassSheets();
   hideInternalSheets();
   ss_().toast('全体ビューとクラス別予約表を更新し、システムシートを整理しました。', '三者面談', 5);
-}
-
-function menuUnbooked() {
-  var ui = SpreadsheetApp.getUi();
-  var list = unbookedStudents(null);
-  if (!list.length) {
-    ui.alert('未予約の生徒', '全員の予約が入っています。', ui.ButtonSet.OK);
-    return;
-  }
-  var byClass = {};
-  list.forEach(function (s) {
-    if (!byClass[s.cls]) byClass[s.cls] = [];
-    byClass[s.cls].push(s.no + '. ' + s.name);
-  });
-  var lines = Object.keys(byClass).sort().map(function (c) {
-    return '【' + c + '】(' + byClass[c].length + '名)\n' + byClass[c].join('、');
-  });
-  ui.alert('未予約の生徒（計 ' + list.length + '名）', lines.join('\n\n'), ui.ButtonSet.OK);
 }
 
 function menuBlock() { setStatusForSelection_(STATUS.BLOCKED); }
@@ -298,13 +279,6 @@ function apiAdminCancel(pass, slotId) {
         String(found.v[COL.STUDENT - 1]), '担任Webによる取消');
       return {};
     });
-  });
-}
-
-function apiAdminUnbooked(pass, cls) {
-  return safe_(function () {
-    requireAdmin_(pass);
-    return { students: unbookedStudents(cls || null) };
   });
 }
 
