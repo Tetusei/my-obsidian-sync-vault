@@ -233,7 +233,7 @@ function exportCurrentMeetingNotesPdf(targetClsName) {
 }
 
 /**
- * 1クラス分の当日面談メモシートPDFを作成（各実施日ごとに1ページ）
+ * 1クラス分の当日面談メモシートPDFを作成（各実施日ごとに1ページ・ゆったり手書きメモ欄）
  */
 function exportSingleMeetingNotesPdf_(clsName, folder, nowStr, fileDateStr) {
   var ss = ss_();
@@ -284,14 +284,14 @@ function exportSingleMeetingNotesPdf_(clsName, folder, nowStr, fileDateStr) {
         var guardian = slot[COL.GUARDIAN - 1] ? slot[COL.GUARDIAN - 1] + ' 様' : '';
         var note = slot[COL.NOTE - 1] || 'なし';
 
-        // 枠ヘッダー行
+        // 枠ヘッダー行（高さ26px）
         sheet.getRange(curRow, 1, 1, 4).merge()
           .setValue('【第' + (idx + 1) + '枠】 ' + timeStr + '　' + (isBooked ? stNo + ' ' + stName + '（保護者: ' + guardian + '）' : '（※' + st + '）'))
           .setFontWeight('bold')
           .setFontSize(10)
           .setBackground(isBooked ? '#e8f0fe' : '#f1f3f4')
           .setVerticalAlignment('middle');
-        sheet.setRowHeight(curRow, 22);
+        sheet.setRowHeight(curRow, 26);
         curRow++;
 
         // 内容ブロック（左: 予約詳細・連絡事項、右: 手書きメモ欄）
@@ -301,29 +301,32 @@ function exportSingleMeetingNotesPdf_(clsName, folder, nowStr, fileDateStr) {
           .setWrap(true)
           .setVerticalAlignment('top');
 
+        // ［進路・学習面］行（ゆったり42px）
         sheet.getRange(curRow, 3, 1, 2).merge()
           .setValue('［進路・学習面］')
           .setFontSize(9).setFontColor('#5f6368').setVerticalAlignment('top');
-        sheet.setRowHeight(curRow, 28);
+        sheet.setRowHeight(curRow, 42);
         curRow++;
 
+        // ［生活・友人・家庭］行（ゆったり42px）
         sheet.getRange(curRow, 3, 1, 2).merge()
           .setValue('［生活・友人・家庭］')
           .setFontSize(9).setFontColor('#5f6368').setVerticalAlignment('top');
-        sheet.setRowHeight(curRow, 28);
+        sheet.setRowHeight(curRow, 42);
         curRow++;
 
+        // ［次への確認事項・申し送り］行（ゆったり40px）
         sheet.getRange(curRow, 3, 1, 2).merge()
           .setValue('［次への確認事項・申し送り］')
           .setFontSize(9).setFontColor('#5f6368').setVerticalAlignment('top');
-        sheet.setRowHeight(curRow, 28);
+        sheet.setRowHeight(curRow, 40);
         curRow++;
 
         // 枠を囲む罫線
         sheet.getRange(curRow - 4, 1, 4, 4)
           .setBorder(true, true, true, true, true, true, '#5f6368', SpreadsheetApp.BorderStyle.SOLID);
         
-        sheet.setRowHeight(curRow, 8); // 余白行
+        sheet.setRowHeight(curRow, 10); // 余白行（10px）
         curRow++;
       }
 
