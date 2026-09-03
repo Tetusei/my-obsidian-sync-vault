@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>三者面談予約システム 操作の手引き v4.6.18</title>
+<style>
+  @page { size: A4; margin: 16mm 16mm 17mm; }
+  * { box-sizing: border-box; }
+  body { margin: 0; color: #263238; font-family: "Yu Gothic", "Meiryo", sans-serif; font-size: 11.3pt; line-height: 1.68; }
+  h1 { margin: 0 0 8mm; color: #174ea6; font-size: 28pt; line-height: 1.25; letter-spacing: .03em; }
+  h2 { margin: 0 0 5mm; padding: 2.5mm 4mm; color: #fff; background: #1967d2; border-radius: 2mm; font-size: 19pt; }
+  h3 { margin: 6mm 0 2mm; color: #174ea6; font-size: 14pt; border-bottom: 1.2pt solid #aac7f8; }
+  p { margin: 0 0 3.2mm; }
+  ul, ol { margin: 1.5mm 0 3.5mm 7mm; padding-left: 5mm; }
+  li { margin: 1.2mm 0; }
+  table { width: 100%; border-collapse: collapse; margin: 3mm 0 5mm; font-size: 10pt; }
+  th { color: #fff; background: #3c78d8; text-align: left; }
+  th, td { border: .7pt solid #b7c9e2; padding: 2.2mm 2.5mm; vertical-align: top; }
+  tr:nth-child(even) td { background: #f7faff; }
+  .page { break-after: page; min-height: 255mm; position: relative; }
+  .page:last-child { break-after: auto; }
+  .cover { display: flex; flex-direction: column; justify-content: center; min-height: 255mm; }
+  .eyebrow { color: #5f6368; font-weight: 700; letter-spacing: .18em; }
+  .lead { font-size: 13pt; line-height: 1.8; }
+  .meta { margin-top: 10mm; padding: 5mm; background: #e8f0fe; border-left: 5pt solid #1967d2; }
+  .box { margin: 3mm 0 5mm; padding: 4mm; border-radius: 2mm; background: #f1f8ff; border: 1pt solid #a8c7fa; }
+  .important { background: #fff4e5; border-color: #f9ab00; }
+  .danger { background: #fce8e6; border-color: #d93025; }
+  .ok { background: #e6f4ea; border-color: #188038; }
+  .label { display: inline-block; margin-right: 2mm; padding: .4mm 2mm; color: #fff; background: #1967d2; border-radius: 3mm; font-size: 9pt; font-weight: 700; }
+  .menu { font-weight: 700; color: #174ea6; }
+  .sheet { font-weight: 700; color: #137333; }
+  .flow { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3mm; margin: 5mm 0; }
+  .flow div { padding: 4mm 2mm; text-align: center; border-radius: 2mm; background: #e8f0fe; font-weight: 700; }
+  .small { color: #5f6368; font-size: 9.5pt; }
+  .footer { position: absolute; bottom: 0; left: 0; right: 0; color: #6b7280; font-size: 8.5pt; text-align: right; }
+</style>
+</head>
+<body>
+
+<section class="page cover">
+  <div class="eyebrow">担任・学年職員・管理担当者用</div>
+  <h1>三者面談 予約システム<br>操作の手引き</h1>
+  <p class="lead">保護者はスマートフォンから希望時間を予約します。学校側では、スプレッドシートの「三者面談」メニューから、準備・受付・調整・印刷・バックアップまで行えます。</p>
+  <div class="meta"><strong>対象バージョン：v4.6.18</strong><br>改訂日：2026年9月3日<br>基準年度：2026年（令和8年）</div>
+  <div class="box important"><strong>今回の主な更新</strong><br>黄色い「予備」行の出席番号・生徒氏名・保護者氏名へ、担任が直接入力できるようになりました。QRコードのAndroid互換性、保護者案内の読みやすさ、Googleカレンダー登録案内も反映済みです。</div>
+</section>
+
+<section class="page">
+  <h2>1　全体の流れ</h2>
+  <div class="flow"><div>① 初期設定</div><div>② 枠を作る</div><div>③ 受付する</div><div>④ 印刷・面談</div></div>
+  <h3>担当ごとの役割</h3>
+  <table><tr><th>担当</th><th>主な作業</th></tr>
+    <tr><td>システム担当者</td><td>初期セットアップ、面談日・時間・受付期間の設定、Webアプリのデプロイ、バックアップ</td></tr>
+    <tr><td>担任</td><td>名簿の確認、面談できない時間の指定、予約確認、代理登録、予備枠の入力、当日の記録</td></tr>
+    <tr><td>保護者</td><td>予約ページで予約・確認・変更・取消。予約後はGoogleカレンダーにも登録可能</td></tr>
+  </table>
+  <h3>最初に覚えること</h3>
+  <ul>
+    <li>操作は上部メニューの <span class="menu">三者面談</span> から行います。見当たらないときはシートを再読み込みします。</li>
+    <li>予約の正本は内部の「枠マスタ」です。クラス別予約表と全体ビューは表示用で、通常は自動更新されます。</li>
+    <li>予約表のA・B列は名簿です。黄色い予備行のL～N列も入力できます。それ以外の自動表示部分には直接入力しません。</li>
+  </ul>
+  <div class="footer">三者面談予約システム 操作の手引き v4.6.18</div>
+</section>
+
+<section class="page">
+  <h2>2　初期準備</h2>
+  <ol>
+    <li><span class="menu">三者面談 ▸ 準備・メンテナンス ▸ ① 初期セットアップ</span> を実行します。</li>
+    <li><span class="sheet">クラス</span> シートへ「クラス・担任名・担任メール・学年」を入力します。</li>
+    <li>各 <span class="sheet">予約表_〇組</span> のA列に出席番号、B列に生徒氏名を貼り付けます。</li>
+    <li><span class="sheet">面談日</span> シートへ日付を入力し、「実施する」にチェックを入れます。</li>
+    <li><span class="sheet">設定</span> シートで開始時刻、面談時間、休憩、通常枠数、予備枠数を確認します。</li>
+    <li><span class="menu">準備・メンテナンス ▸ ② 枠を再生成</span> を実行します。</li>
+    <li><span class="menu">準備・メンテナンス ▸ データを点検する</span> を実行し、赤い項目を解消します。</li>
+  </ol>
+  <div class="box important"><strong>枠を再生成するとき</strong><br>既存予約は可能な限り引き継がれます。日数や枠数を減らして予約の行き先がなくなる場合は、予約を守るため処理が中止されます。表示された生徒の予約を先に調整してください。</div>
+  <h3>名簿の注意</h3>
+  <ul>
+    <li>出席番号はクラス内で重複させません。</li>
+    <li>氏名は保護者の本人確認に使います。転記間違いがないか確認します。</li>
+    <li>交流学級に同じ児童生徒が載る場合は、<span class="sheet">交流学級</span> シートで結び付けます。</li>
+  </ul>
+  <div class="footer">2 / 初期準備</div>
+</section>
+
+<section class="page">
+  <h2>3　設定シートの要点</h2>
+  <table><tr><th>設定</th><th>意味・おすすめ</th></tr>
+    <tr><td>保護者用URL</td><td>保護者へ配るWebアプリURL。末尾が <strong>/exec</strong> のものを使います。</td></tr>
+    <tr><td>面談開始時刻／枠の長さ／休憩／1日の枠数</td><td>通常の面談時間割を決めます。</td></tr>
+    <tr><td>予備の枠数（1日あたり）</td><td>通常枠の後ろに作る、保護者には表示されない黄色い枠。0で無し。</td></tr>
+    <tr><td>公開</td><td>TRUEで受付可能。通常はメニューから開始・停止します。</td></tr>
+    <tr><td>予約受付開始／締切</td><td>日時を指定できます。空欄の場合は開始直後／締切なし。</td></tr>
+    <tr><td>表示の自動更新</td><td><strong>受付前にTRUE推奨。</strong>予約表と全体ビューを5分おきに更新します。</td></tr>
+    <tr><td>だめなコマの自動反映</td><td>チェックした時間を、その場で受付不可へ切り替えます。</td></tr>
+    <tr><td>毎日の自動バックアップ</td><td>受付中はTRUE推奨。自動分は世代管理されます。</td></tr>
+    <tr><td>管理画面URL／管理パスコード</td><td>担任用Web管理画面。保護者には知らせません。</td></tr>
+  </table>
+  <div class="box"><strong>すぐ表示を最新にする</strong><br><span class="menu">三者面談 ▸ 全体ビュー・予約表を更新</span> を実行します。ブラウザに古い表示が残る場合は、シートも再読み込みしてください。</div>
+  <div class="footer">3 / 設定</div>
+</section>
+
+<section class="page">
+  <h2>4　面談できない時間を指定する</h2>
+  <h3>まとめて指定する方法</h3>
+  <ol>
+    <li><span class="menu">三者面談 ▸ だめなコマ ▸ 一覧シートを作る・更新する</span> を実行します。</li>
+    <li><span class="sheet">だめなコマ</span> シートで、面談できない時間にチェックを入れます。</li>
+    <li>自動反映がオフなら、<span class="menu">だめなコマ ▸ 指定を枠に反映する</span> を実行します。</li>
+  </ol>
+  <h3>1件だけ変更する方法</h3>
+  <p>予約表または枠マスタで対象行を選び、<span class="menu">選んだ行を操作 ▸ 面談を入れない（ブロック）にする</span> を実行します。解除も同じメニューから行えます。</p>
+  <div class="box danger"><strong>予約済みの時間にチェックを付けた場合</strong><br>予約は勝手に消えません。赤い「要調整」として表示されます。保護者へ連絡し、時間変更または取消を行ってください。</div>
+  <h3>表示の意味</h3>
+  <table><tr><th>色・表示</th><th>意味</th></tr>
+    <tr><td>緑「空き」</td><td>保護者が予約できます。</td></tr>
+    <tr><td>白「予約済」</td><td>予約が入っています。</td></tr>
+    <tr><td>灰色「×」</td><td>面談なし。保護者画面には出ません。</td></tr>
+    <tr><td>赤「要調整」</td><td>予約済みですが、だめなコマにも指定されています。</td></tr>
+    <tr><td>黄色「予備」</td><td>保護者には見えない、担任が使う予備枠です。</td></tr>
+  </table>
+  <div class="footer">4 / だめなコマ</div>
+</section>
+
+<section class="page">
+  <h2>5　受付を開始する</h2>
+  <ol>
+    <li><span class="menu">準備・メンテナンス ▸ データを点検する</span> を実行します。</li>
+    <li>保護者用URLを、通常のブラウザとシークレットウィンドウの両方で開きます。</li>
+    <li><span class="menu">予約の受付・URL ▸ 受付を開始する</span> を実行します。</li>
+    <li><span class="menu">印刷用PDFを作る ▸ 保護者への案内プリント（QRコード付き）</span> を作成します。</li>
+    <li>印刷前にiPhone/iPadだけでなく、AndroidスマートフォンでもQRコードを読み取ります。</li>
+  </ol>
+  <div class="box ok"><strong>保護者向けページ</strong><br>予約画面には予約できる時間だけが表示されます。予約完了後は4桁の予約コードが表示され、Googleカレンダーへ登録することもできます。</div>
+  <div class="box important"><strong>Androidで「ファイルを開くことができません」と出る場合</strong><br>ChromeでURLを長押ししてコピーし、右上の「︙」から「新しいシークレット タブ」を開き、上部の入力欄へ貼り付けます。別のスマートフォンやパソコンを試しても開かない場合は、学校へ連絡してもらいます。</div>
+  <p class="small">QRコード自体はv4.6.8で規格どおりに修正済みです。一部端末だけで開けない場合は、端末内のGoogleアカウントやブラウザの保存状態が原因のことがあります。</p>
+  <div class="footer">5 / 受付開始</div>
+</section>
+
+<section class="page">
+  <h2>6　予約を確認・調整する</h2>
+  <h3>クラス別予約表</h3>
+  <p><span class="sheet">予約表_〇組</span> は、左側が生徒別、右側が時間順です。G1の「◀ 全体ビュー」で全体ビューへ戻れます。全体ビューのクラス名を押すと、そのクラスの予約表へ移動できます。</p>
+  <h3>通常枠へ担任が代理登録する</h3>
+  <ol>
+    <li>右側の時間枠から、空いている行を1つ選びます。</li>
+    <li><span class="menu">三者面談 ▸ 選んだ行を操作 ▸ この枠に生徒を入れる（代理登録）</span> を選びます。</li>
+    <li>生徒を選んで登録し、表示された4桁の予約コードを保護者へ伝えます。</li>
+  </ol>
+  <div class="box danger"><strong>通常枠のL～N列へ直接入力しないでください。</strong><br>通常枠は予約コードや重複確認が必要です。直接入力しようとすると警告が出ます。必ず行メニューか担任用Web管理画面を使います。</div>
+  <h3>予約を取り消す</h3>
+  <p>対象行を選び、<span class="menu">選んだ行を操作 ▸ 予約を取り消す</span> を実行します。取り消した記録は予約ログに残ります。</p>
+  <div class="footer">6 / 予約の確認・調整</div>
+</section>
+
+<section class="page">
+  <h2>7　黄色い「予備」枠を使う</h2>
+  <p>予備枠は、保護者の予約画面には表示されません。電話対応や個別調整など、担任が必要なときだけ使用します。</p>
+  <div class="box important"><strong>直接入力できる場所</strong><br>黄色い「予備」行の次の3列だけです。<br><strong>L列：出席番号　M列：生徒氏名　N列：保護者氏名</strong></div>
+  <table><tr><th>入力方法</th><th>システムの動き</th></tr>
+    <tr><td>出席番号だけ入力</td><td>名簿から生徒氏名を自動で補います。</td></tr>
+    <tr><td>生徒氏名だけ入力</td><td>名簿から出席番号を自動で補います。</td></tr>
+    <tr><td>出席番号と氏名をまとめて入力</td><td>同じ生徒か確認して保存します。</td></tr>
+    <tr><td>保護者氏名を入力</td><td>予備枠の情報として保存します。</td></tr>
+    <tr><td>L～N列をまとめて消す</td><td>その予備枠を空にします。</td></tr>
+  </table>
+  <div class="box ok"><strong>安全確認は自動です</strong><br>名簿にない生徒、番号と氏名の不一致、すでに別の面談がある生徒は登録されません。理由が画面右下に表示され、セルは保存済みの内容へ戻ります。</div>
+  <h3>ほかの入力方法</h3>
+  <ul>
+    <li>予備行を選び、<span class="menu">選んだ行を操作 ▸ この枠に生徒を入れる</span></li>
+    <li>担任用Web管理画面で黄色いセルを押す</li>
+  </ul>
+  <div class="box"><strong>更新後、最初の1回</strong><br>v4.6.17以前から更新した場合は、シートを再読み込みし、<span class="menu">全体ビュー・予約表を更新</span> を1回実行してください。古い警告範囲が新しい範囲へ置き換わります。</div>
+  <div class="footer">7 / 予備枠</div>
+</section>
+
+<section class="page">
+  <h2>8　担任用Web管理画面</h2>
+  <p><span class="sheet">設定</span> シートの「管理画面URL」を開き、管理パスコードを入力します。保護者用URLとは別なので、保護者には配りません。</p>
+  <h3>できること</h3>
+  <ul>
+    <li>全クラスの予約状況を最新状態で確認</li>
+    <li>空き・ブロックの切り替え</li>
+    <li>通常枠への代理登録、予約の取消</li>
+    <li>黄色い予備枠への登録・解除</li>
+    <li>未予約者の確認、表示用シートの更新</li>
+  </ul>
+  <div class="box important"><strong>画面が古いとき</strong><br>スクリプトを更新しただけでは、Web管理画面と保護者画面は古いデプロイのままです。デプロイ担当者へ「既存デプロイを新バージョンへ更新」するよう依頼してください。</div>
+  <div class="box danger"><strong>「新しいデプロイ」は作らない</strong><br>更新時は <strong>デプロイ ▸ デプロイを管理 ▸ 鉛筆アイコン ▸ 新バージョン</strong> を使います。新しいデプロイを作るとURLが変わります。</div>
+  <div class="footer">8 / Web管理画面</div>
+</section>
+
+<section class="page">
+  <h2>9　印刷と当日の運用</h2>
+  <table><tr><th>PDF</th><th>使う時期</th></tr>
+    <tr><td>保護者への案内プリント（QRコード付き）</td><td>受付開始時。印刷前に複数端末でQRを確認します。</td></tr>
+    <tr><td>クラス別予約表</td><td>締切後。担任用の確認資料。</td></tr>
+    <tr><td>当日の面談記録シート</td><td>面談前日。記録用紙として使用。</td></tr>
+    <tr><td>当日の受付一覧（全校・時間順）</td><td>面談前日。受付本部用。</td></tr>
+  </table>
+  <h3>面談前日の確認</h3>
+  <ul>
+    <li><span class="menu">全体ビュー・予約表を更新</span> を実行する。</li>
+    <li><span class="menu">データを点検する</span> で、二重予約・要調整・未登録の手入力を確認する。</li>
+    <li>必要なPDFを出力し、日時とクラスを目視確認する。</li>
+    <li><span class="menu">準備・メンテナンス ▸ バックアップを作成</span> を実行する。</li>
+  </ul>
+  <h3>予約ログ</h3>
+  <p>予約・変更・取消・予備枠への登録などが記録されます。問い合わせ時は、日時・クラス・生徒氏名・操作内容を確認してください。</p>
+  <div class="footer">9 / 印刷・当日</div>
+</section>
+
+<section class="page">
+  <h2>10　バックアップとリセット</h2>
+  <h3>バックアップ</h3>
+  <p>手動バックアップは <span class="menu">準備・メンテナンス ▸ バックアップを作成</span> から実行します。保存先は「📦_バックアップ保存箱」です。受付開始直後、締切直後、面談前日の作成をおすすめします。</p>
+  <h3>リセットの使い分け</h3>
+  <table><tr><th>操作</th><th>用途</th></tr>
+    <tr><td>予約をすべて取り消す</td><td>練習予約だけを消す、受付をやり直す。</td></tr>
+    <tr><td>だめなコマをすべて外す</td><td>面談不可時間を指定し直す。</td></tr>
+    <tr><td>次の面談にそなえて初期化</td><td>名簿を残し、次学期の面談へ切り替える。</td></tr>
+    <tr><td>年度末：すべて初期化</td><td>年度更新。実行前に必ずバックアップする。</td></tr>
+  </table>
+  <div class="box danger"><strong>リセット前に必ず確認</strong><br>対象件数と残すデータを確認し、バックアップを作成します。削除後は、バックアップを使わない限り元へ戻せません。</div>
+  <div class="footer">10 / バックアップ・リセット</div>
+</section>
+
+<section class="page">
+  <h2>11　困ったとき</h2>
+  <table><tr><th>症状</th><th>確認すること</th></tr>
+    <tr><td>三者面談メニューがない</td><td>スプレッドシートを再読み込みします。初回はGoogleの承認が必要です。</td></tr>
+    <tr><td>予約が表に出ない</td><td>表示の自動更新をTRUEにするか、「全体ビュー・予約表を更新」を実行します。</td></tr>
+    <tr><td>予備行で警告が出る</td><td>再読み込み後、「全体ビュー・予約表を更新」を1回実行します。入力場所は黄色い行のL～N列です。</td></tr>
+    <tr><td>予備へ入力しても元に戻る</td><td>画面右下の理由を確認します。名簿外、番号と氏名の不一致、二重予約が考えられます。</td></tr>
+    <tr><td>Androidで開けない</td><td>ChromeのシークレットタブでURLを開きます。別端末でも確認します。</td></tr>
+    <tr><td>Web画面だけ古い</td><td>既存Webアプリを新バージョンへ再デプロイします。</td></tr>
+    <tr><td>URLで「ファイルを開くことができません」</td><td>設定シートのURLを数式バーからコピーし、途中が省略されていないか確認します。</td></tr>
+  </table>
+  <div class="box"><strong>問い合わせ時に控えるもの</strong><br>表示されたメッセージ全文、発生日時、クラス、生徒、操作したシート名とセル、利用端末（Android／iPad／PC）を伝えると原因を特定しやすくなります。</div>
+  <h3>v4.6.18 更新履歴</h3>
+  <ul>
+    <li>黄色い予備行L～N列への直接入力を復活</li>
+    <li>名簿照合・二重予約確認・誤入力時の復元を追加</li>
+    <li>通常枠の誤編集防止、予備枠の色分け、シート間リンクを維持</li>
+  </ul>
+  <div class="footer">三者面談予約システム 操作の手引き v4.6.18 ／ 2026-09-03</div>
+</section>
+</body>
+</html>

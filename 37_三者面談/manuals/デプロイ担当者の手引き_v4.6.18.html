@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>デプロイ担当者の手引き v4.6.18</title>
+<style>
+  @page { size: A4; margin: 16mm 16mm 17mm; }
+  * { box-sizing: border-box; }
+  body { margin: 0; color: #263238; font-family: "Yu Gothic", "Meiryo", sans-serif; font-size: 11.3pt; line-height: 1.68; }
+  h1 { margin: 0 0 8mm; color: #7b1fa2; font-size: 28pt; line-height: 1.25; }
+  h2 { margin: 0 0 5mm; padding: 2.5mm 4mm; color: #fff; background: #7b1fa2; border-radius: 2mm; font-size: 19pt; }
+  h3 { margin: 6mm 0 2mm; color: #6a1b9a; font-size: 14pt; border-bottom: 1.2pt solid #d7aefb; }
+  p { margin: 0 0 3.2mm; }
+  ul, ol { margin: 1.5mm 0 3.5mm 7mm; padding-left: 5mm; }
+  li { margin: 1.2mm 0; }
+  table { width: 100%; border-collapse: collapse; margin: 3mm 0 5mm; font-size: 10pt; }
+  th { color: #fff; background: #8e24aa; text-align: left; }
+  th, td { border: .7pt solid #cfb5d8; padding: 2.2mm 2.5mm; vertical-align: top; }
+  tr:nth-child(even) td { background: #fcf7ff; }
+  .page { break-after: page; min-height: 255mm; position: relative; }
+  .page:last-child { break-after: auto; }
+  .cover { display: flex; flex-direction: column; justify-content: center; min-height: 255mm; }
+  .eyebrow { color: #5f6368; font-weight: 700; letter-spacing: .18em; }
+  .lead { font-size: 13pt; line-height: 1.8; }
+  .meta { margin-top: 10mm; padding: 5mm; background: #f3e8fd; border-left: 5pt solid #7b1fa2; }
+  .box { margin: 3mm 0 5mm; padding: 4mm; border-radius: 2mm; background: #faf4ff; border: 1pt solid #c58af9; }
+  .important { background: #fff4e5; border-color: #f9ab00; }
+  .danger { background: #fce8e6; border-color: #d93025; }
+  .ok { background: #e6f4ea; border-color: #188038; }
+  .menu { font-weight: 700; color: #6a1b9a; }
+  code { padding: .4mm 1.2mm; background: #f1f3f4; border-radius: 1mm; font-family: Consolas, monospace; font-size: 9.5pt; }
+  .check li { list-style: none; margin-left: -5mm; }
+  .check li::before { content: "□ "; font-weight: 700; }
+  .footer { position: absolute; bottom: 0; left: 0; right: 0; color: #6b7280; font-size: 8.5pt; text-align: right; }
+</style>
+</head>
+<body>
+
+<section class="page cover">
+  <div class="eyebrow">システム管理・配布担当者用</div>
+  <h1>デプロイ担当者の手引き</h1>
+  <p class="lead">三者面談予約システムを自校で公開し、更新後も同じURLのまま安全に使い続けるための手順です。</p>
+  <div class="meta"><strong>対象バージョン：v4.6.18</strong><br>改訂日：2026年9月3日<br>所要時間：初回約15分／更新約3分</div>
+  <div class="box danger"><strong>最重要</strong><br>更新時は「新しいデプロイ」を作りません。必ず <strong>デプロイを管理 ▸ 既存デプロイの鉛筆アイコン ▸ 新バージョン</strong> から更新します。</div>
+</section>
+
+<section class="page">
+  <h2>1　初回公開までの流れ</h2>
+  <ol>
+    <li>配布元のスプレッドシートから、自校のGoogleドライブへコピーを作成します。</li>
+    <li>コピーを開き、<span class="menu">三者面談 ▸ 準備・メンテナンス ▸ ① 初期セットアップ</span> を実行します。</li>
+    <li>Googleの承認画面で、学校のアカウントを選んで許可します。</li>
+    <li><span class="menu">拡張機能 ▸ Apps Script</span> を開きます。</li>
+    <li>右上の <span class="menu">デプロイ ▸ 新しいデプロイ</span> を選び、種類を「ウェブアプリ」にします。</li>
+  </ol>
+  <h3>必須設定</h3>
+  <table><tr><th>項目</th><th>選ぶもの</th></tr>
+    <tr><td>次のユーザーとして実行</td><td><strong>自分</strong></td></tr>
+    <tr><td>アクセスできるユーザー</td><td><strong>全員</strong>（組織の設定で選べない場合は管理者へ相談）</td></tr>
+  </table>
+  <p>「デプロイ」を押し、末尾が <code>/exec</code> のURLをコピーボタンでコピーします。省略表示を目で書き写さないでください。</p>
+  <div class="box"><strong>設定シートへ登録</strong><br>スプレッドシートの「保護者用URL」へ貼り付けます。「管理画面URL」は自動で作られます。管理画面URLと管理パスコードは保護者へ知らせません。</div>
+  <div class="footer">1 / 初回公開</div>
+</section>
+
+<section class="page">
+  <h2>2　公開後の確認</h2>
+  <ul class="check">
+    <li>保護者用URLを通常のブラウザで開くと、クラス選択画面が出る</li>
+    <li>Chromeのシークレットウィンドウでも同じURLを開ける</li>
+    <li>ログイン画面へ強制的に移動しない</li>
+    <li>設定シートの保護者用URLと、実際に開いたURLが同じ</li>
+    <li>管理画面URLを開くと、管理パスコード入力欄が出る</li>
+    <li>iPhone／iPadだけでなく、AndroidでもQRコードを読み取れる</li>
+    <li>システムの表示バージョンが <strong>v4.6.18</strong></li>
+  </ul>
+  <div class="box important"><strong>Androidの確認方法</strong><br>通常のChromeで開けない場合は、右上の「︙」から「新しいシークレット タブ」を開き、URLを貼り付けます。シークレットタブでは開ける場合、WebアプリやQRコードではなく、その端末のGoogleアカウント・ブラウザ状態が原因と考えられます。</div>
+  <h3>自動処理を設定する</h3>
+  <table><tr><th>設定</th><th>おすすめ</th></tr>
+    <tr><td>表示の自動更新</td><td><strong>必ずオン</strong>。予約表を5分おきに更新。</td></tr>
+    <tr><td>毎日の自動バックアップ</td><td>受付中はオン推奨。</td></tr>
+    <tr><td>だめなコマの自動反映</td><td>学校の運用に応じて。</td></tr>
+    <tr><td>締切前の自動リマインド</td><td>必要に応じて。</td></tr>
+  </table>
+  <div class="footer">2 / 公開確認</div>
+</section>
+
+<section class="page">
+  <h2>3　システムを更新するとき</h2>
+  <div class="box danger"><strong>更新では「新しいデプロイ」を作らないでください。</strong><br>新しいURLが発行され、配布済みのURLが古いコードのまま残ります。</div>
+  <ol>
+    <li>スプレッドシートで <span class="menu">拡張機能 ▸ Apps Script</span> を開きます。</li>
+    <li>右上の <span class="menu">デプロイ ▸ デプロイを管理</span> を選びます。</li>
+    <li>現在使っているウェブアプリの右上にある鉛筆アイコンを押します。</li>
+    <li>「バージョン」で <strong>新バージョン</strong> を選びます。</li>
+    <li>説明欄へ「v4.6.18 2026-09-03」のように記録します。</li>
+    <li>「デプロイ」を押し、承認を求められたら許可します。</li>
+    <li>元の保護者用URLを開き、表示とバージョンを確認します。</li>
+  </ol>
+  <h3>なぜ再デプロイが必要か</h3>
+  <p>スプレッドシートのメニューや自動処理は、保存された最新コードで動きます。一方、保護者画面と担任用Web管理画面は、デプロイ時に固定されたバージョンで動きます。</p>
+  <table><tr><th>変更内容</th><th>再デプロイ</th></tr>
+    <tr><td>保護者画面、予約・変更・取消処理、担任用Web管理画面</td><td><strong>必要</strong></td></tr>
+    <tr><td>シートのメニュー、表示更新、だめなコマ、自動バックアップ</td><td>通常は不要</td></tr>
+  </table>
+  <div class="footer">3 / 更新デプロイ</div>
+</section>
+
+<section class="page">
+  <h2>4　v4.6.18へ更新した直後</h2>
+  <ol>
+    <li>スプレッドシートを再読み込みします。</li>
+    <li><span class="menu">三者面談 ▸ 全体ビュー・予約表を更新</span> を1回実行します。</li>
+    <li>クラス別予約表の黄色い予備行で、L～N列に警告が出ないことを確認します。</li>
+    <li>通常枠のL～N列には、引き続き編集前の警告が出ることを確認します。</li>
+    <li>既存Webアプリを新バージョンへ再デプロイします。</li>
+  </ol>
+  <div class="box ok"><strong>黄色い予備行の仕様</strong><br>L列（出席番号）・M列（生徒氏名）・N列（保護者氏名）へ直接入力できます。番号または氏名の片方だけでも名簿から補完します。名簿外・不一致・二重予約は保存されず、理由が表示されます。</div>
+  <h3>v4.6.8以降のQR修正</h3>
+  <p>QRコードの形式情報を規格どおりに修正し、AndroidのZXing系読み取りにも対応しました。新しく案内プリントを作り直し、印刷物のQRを実機で確認してください。</p>
+  <div class="box important"><strong>コード更新だけでは配布済みPDFは変わりません。</strong><br>案内文・文字サイズ・Android向け説明・Googleカレンダーの案内を反映するには、メニューから保護者用案内プリントを再作成します。</div>
+  <div class="footer">4 / v4.6.18更新後</div>
+</section>
+
+<section class="page">
+  <h2>5　よくある問題</h2>
+  <table><tr><th>症状</th><th>対応</th></tr>
+    <tr><td>「ファイルを開くことができません」</td><td>URLが末尾まであるか確認。Chromeのシークレットタブ、別端末でも確認。</td></tr>
+    <tr><td>ログインを求められる</td><td>デプロイの「アクセスできるユーザー」を確認。組織制限があればGoogle管理者へ相談。</td></tr>
+    <tr><td>直したはずなのにWeb画面が古い</td><td>「デプロイを管理」から既存デプロイを新バージョンへ更新。</td></tr>
+    <tr><td>配布URLと編集したURLが違う</td><td>新しいデプロイを作った可能性があります。配布中のURLを持つ既存デプロイを更新。</td></tr>
+    <tr><td>予約はあるのに一覧表へ出ない</td><td>表示の自動更新をオンにし、「全体ビュー・予約表を更新」を実行。</td></tr>
+    <tr><td>黄色い予備行で警告が出る</td><td>v4.6.18のコード反映後、表示更新を1回実行して保護範囲を更新。</td></tr>
+  </table>
+  <h3>前のバージョンへ戻す</h3>
+  <p><span class="menu">デプロイを管理 ▸ 鉛筆アイコン</span> から、過去のバージョンを選んで再デプロイできます。ただし、予約データ自体は戻りません。データを戻す場合は「📦_バックアップ保存箱」のバックアップを使います。</p>
+  <div class="box"><strong>問い合わせ時に控えるもの</strong><br>WebアプリURL、表示バージョン、発生日時、画面のメッセージ全文、端末・ブラウザ、通常タブとシークレットタブの結果を配布元へ伝えてください。</div>
+  <div class="footer">デプロイ担当者の手引き v4.6.18 ／ 2026-09-03</div>
+</section>
+</body>
+</html>
