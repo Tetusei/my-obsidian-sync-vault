@@ -1412,7 +1412,7 @@ function assignStudentToSlot_(slotId, text) {
         found.v[COL.STUDENT - 1] + ' さんの予約が入っています。先に取り消してください。');
     }
     if (st === STATUS.RESERVE) {
-      throw new Error('予備の枠です。担任用の管理画面の黄色いセルから入れてください。');
+      throw new Error('予備の枠です。黄色い行の出席番号・生徒氏名・保護者氏名へ直接入力するか、担任用の管理画面を使ってください。');
     }
 
     var cls = String(found.v[COL.CLASS - 1]);
@@ -1466,11 +1466,14 @@ function assignStudentToSlot_(slotId, text) {
  * @param {string} slotId 対象の枠ID
  * @param {string} input 出席番号か氏名。空文字ならその枠を空にする
  * @param {string} source 予約ログに残す操作元
+ * @param {string=} guardian 保護者氏名。省略時は現在の値を保つ
  * @return {{no:(number|string), name:string, cls:string, dateLabel:string, start:string, end:string}}
  */
-function setReserveStudent_(slotId, input, source) {
+function setReserveStudent_(slotId, input, source, guardian) {
   var text = String(input == null ? '' : input).trim();
   var from = source || '担任';
+  var guardianProvided = arguments.length >= 4;
+  var guardianText = guardianProvided ? String(guardian == null ? '' : guardian).trim() : '';
 
   return withLock_(function () {
     var found = findSlotRow_(slotId);
@@ -1487,9 +1490,18 @@ function setReserveStudent_(slotId, input, source) {
     };
 
     if (!text) {
+      if (!found.v[COL.NUMBER - 1] && !found.v[COL.STUDENT - 1] &&
+          !found.v[COL.GUARDIAN - 1] && !found.v[COL.NOTE - 1]) {
+        syncReserveRowInClassSheet_(slotId, cls, '', '', '');
+        return {
+          no: '', name: '', cls: cls,
+          dateLabel: when.dateLabel, start: when.start, end: when.end
+        };
+      }
       sh.getRange(found.row, COL.NUMBER, 1, 4).setValues([['', '', '', '']]);
       clearSlotCache_();
       markViewsStale_();
+      syncReserveRowInClassSheet_(slotId, cls, '', '', '');
       logAction_('予備コマを空に', slotId, cls,
         found.v[COL.NUMBER - 1] || '', String(found.v[COL.STUDENT - 1] || ''), from);
       return {
@@ -1508,15 +1520,48 @@ function setReserveStudent_(slotId, input, source) {
         already.v[COL.START - 1] + ' に面談が入っています。先にそちらを取り消してください。');
     }
 
-    sh.getRange(found.row, COL.NUMBER, 1, 2).setValues([[hit.no, hit.name]]);
+    var savedGuardian = guardianProvided
+      ? guardianText
+      : String(found.v[COL.GUARDIAN - 1] || '');
+    if (Number(found.v[COL.NUMBER - 1]) === Number(hit.no) &&
+        String(found.v[COL.STUDENT - 1] || '') === String(hit.name) &&
+        String(found.v[COL.GUARDIAN - 1] || '') === savedGuardian) {
+      syncReserveRowInClassSheet_(slotId, cls, hit.no, hit.name, savedGuardian);
+      return {
+        no: hit.no, name: hit.name, cls: cls,
+        dateLabel: when.dateLabel, start: when.start, end: when.end
+      };
+    }
+
+    sh.getRange(found.row, COL.NUMBER, 1, 3)
+      .setValues([[hit.no, hit.name, savedGuardian]]);
     clearSlotCache_();
     markViewsStale_();
+    syncReserveRowInClassSheet_(slotId, cls, hit.no, hit.name, savedGuardian);
     logAction_('予備コマに記入', slotId, cls, hit.no, hit.name, from);
     return {
       no: hit.no, name: hit.name, cls: cls,
       dateLabel: when.dateLabel, start: when.start, end: when.end
     };
   });
+}
+
+/** 枠マスタの予備コマを、該当クラスの表示行へすぐ書き写す。 */
+function syncReserveRowInClassSheet_(slotId, cls, no, name, guardian) {
+  try {
+    var sh = ss_().getSheetByName(CLASS_SHEET_PREFIX + cls);
+    if (!sh || sh.getLastRow() < 2) return;
+    var idCol = 9 + CLASS_HEADER_RIGHT.length;
+    var ids = sh.getRange(2, idCol, sh.getLastRow() - 1, 1).getValues();
+    for (var i = 0; i < ids.length; i++) {
+      if (String(ids[i][0] || '').trim() !== String(slotId)) continue;
+      sh.getRange(i + 2, 12, 1, 3).setValues([[no || '', name || '', guardian || '']]);
+      return;
+    }
+  } catch (e) {
+    // 表示への書き写しに失敗しても、枠マスタへの保存は完了している
+    console.warn('予備コマの表示同期をスキップ:', e);
+  }
 }
 
 function apiAdminCancel(pass, slotId) {
@@ -1557,12 +1602,12 @@ function findSlotRow_(slotId) {
 /**
  * 「予約表_〇組」の、作り直されてしまう場所に書き込まれたときに知らせる。
  *
- * このシートで手入力してよいのは **A・B列（名簿）だけ**。
- * それ以外は黄色い（予備）の行も含めて次の更新で消えるが、書いた本人には分からない。
+ * このシートで手入力してよいのは、A・B列（名簿）と黄色い予備行のL〜N列。
+ * それ以外は次の更新で消えるが、書いた本人には分からない。
  * 黙って消すのがいちばん困るので、その場で伝える。
  *
- * 「ここはよくて、ここはだめ」を作らないのは、覚えられないからでもあるが、
- * 正しい操作にまで警告を出すと、やがて中身を読まずに閉じるようになるため。
+ * 正しい予備入力に警告を出すと、やがて警告の中身を読まずに閉じるようになるため、
+ * 許可する列と行を明確に判定する。
  */
 function warnGeneratedEdit_(e, sh) {
   var row = e.range.getRow();
@@ -1574,7 +1619,7 @@ function warnGeneratedEdit_(e, sh) {
 
   sh.getParent().toast(
     'この表は「' + SH.SLOTS + '」から自動で作り直されます。いま書いた内容は次の更新で消えます。' +
-    '黄色い（予備）の行も同じです。手で入れてよいのはA・B列の名簿だけです。' +
+    '手で入れてよいのはA・B列の名簿と、黄色い予備行の出席番号・生徒氏名・保護者氏名だけです。' +
     '面談を入れるときは、その行を選んでメニュー「' + MENU.ROWOPS +
     ' ▸ この枠に生徒を入れる」か、担任用の管理画面から行ってください。',
     '⚠ ここに書いても残りません', 15);
@@ -1587,8 +1632,71 @@ function warnGeneratedEdit_(e, sh) {
   } catch (e2) { /* 位置が取れなくても知らせる */ }
 
   logStrayEdit_(sh.getName().slice(CLASS_SHEET_PREFIX.length), e, where +
-    '面談の登録は担任用の管理画面か、その行を選んで' +
+    '通常枠の登録は担任用の管理画面か、その行を選んで' +
     '「' + MENU.ROWOPS + ' ▸ この枠に生徒を入れる」から行ってください');
+}
+
+/**
+ * 黄色い予備行の L〜N列へ直接入力された内容を、その場で枠マスタへ保存する。
+ * 名簿照合・二重予約確認は、管理画面と同じ setReserveStudent_ を必ず通す。
+ * @return {boolean} 予備行の正規入力として扱ったとき true
+ */
+function handleReserveEntryEdit_(e, sh) {
+  var range = e.range;
+  var firstCol = range.getColumn();
+  var lastCol = firstCol + range.getNumColumns() - 1;
+  if (firstCol < 12 || lastCol > 14 || range.getRow() < 2) return false;
+
+  var rowCount = range.getNumRows();
+  var rows = sh.getRange(range.getRow(), 11, rowCount, 6).getValues(); // K〜P
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i][0]) !== STATUS.RESERVE || !String(rows[i][5] || '').trim()) return false;
+  }
+
+  var touchesNo = firstCol <= 12 && lastCol >= 12;
+  var touchesName = firstCol <= 13 && lastCol >= 13;
+  for (var r = 0; r < rows.length; r++) {
+    var sheetRow = range.getRow() + r;
+    var slotId = String(rows[r][5]).trim();
+    var typedNo = String(rows[r][1] == null ? '' : rows[r][1]).trim();
+    var typedName = String(rows[r][2] || '').trim();
+    var typedGuardian = String(rows[r][3] || '').trim();
+    try {
+      var input = '';
+      if (touchesNo && touchesName && typedNo && typedName) {
+        var byNo = resolveStudent_(sh.getName().slice(CLASS_SHEET_PREFIX.length), typedNo);
+        var byName = resolveStudent_(sh.getName().slice(CLASS_SHEET_PREFIX.length), typedName);
+        if (Number(byNo.no) !== Number(byName.no)) {
+          throw new Error('出席番号と生徒氏名が一致しません。');
+        }
+        input = String(byNo.no);
+      } else if (touchesName && typedName) {
+        input = typedName;
+      } else if (touchesNo && typedNo) {
+        input = typedNo;
+      } else {
+        input = typedNo || typedName;
+      }
+
+      if (!input && typedGuardian) {
+        throw new Error('先に出席番号か生徒氏名を入力してください。');
+      }
+      setReserveStudent_(slotId, input, '担任が予約表に直接入力', typedGuardian);
+    } catch (err) {
+      try {
+        var found = findSlotRow_(slotId);
+        sh.getRange(sheetRow, 12, 1, 3).setValues([[
+          found.v[COL.NUMBER - 1] || '',
+          found.v[COL.STUDENT - 1] || '',
+          found.v[COL.GUARDIAN - 1] || ''
+        ]]);
+      } catch (restoreErr) { /* 次の表示更新でも元に戻る */ }
+      sh.getParent().toast(String(err.message || err), '⚠ 予備枠に登録できません', 15);
+      logStrayEdit_(sh.getName().slice(CLASS_SHEET_PREFIX.length), e,
+        '予備枠への入力を確認してください: ' + String(err.message || err));
+    }
+  }
+  return true;
 }
 
 /**
@@ -1650,6 +1758,7 @@ function onEdit(e) {
     // 予約表・全体ビューは毎回作り直される表示用のシート。
     // 書いても残らない場所に手を入れたら、その場で知らせる
     if (sheetName.indexOf(CLASS_SHEET_PREFIX) === 0) {
+      if (handleReserveEntryEdit_(e, sh)) return;
       warnGeneratedEdit_(e, sh);
       return;
     }

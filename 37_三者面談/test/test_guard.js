@@ -1,5 +1,5 @@
 /**
- * 作り直される場所への手入力を止める仕掛け（v4.6.14〜15）。
+ * 作り直される場所への手入力を止める仕掛け（v4.6.14〜18）。
  *
  * 手引きを読まず、感覚だけでシートを操作する担任は必ずいる。
  * 予約表や全体ビューへ手で書いても次の更新で消えるが、
@@ -10,7 +10,7 @@
  *   1. 書き込む瞬間に、Googleの保護（警告のみ）で止める
  *   2. それでも書かれたら、予約ログに残してデータ点検から拾う
  *
- * 手で入れてよいのは A・B列の名簿だけ、と一言で言い切れる状態を保つ。
+ * 手で入れてよいのは A・B列の名簿と、黄色い予備行のL〜N列。
  */
 
 'use strict';
@@ -35,6 +35,16 @@ const ovSh = () => g.__ss.getSheetByName(g.SH.OVERVIEW);
 function guards(sh) {
   return sh.getProtections('RANGE').concat(sh.getProtections('SHEET'))
     .filter((p) => String(p.getDescription()).indexOf(g.EDIT_GUARD_TAG) === 0);
+}
+
+/** 指定セルがシステムの範囲保護に含まれているか */
+function guardedAt(sh, row, col) {
+  return guards(sh).some((p) => {
+    const r = p.getRange();
+    if (!r) return true;
+    return row >= r.getRow() && row < r.getRow() + r.getNumRows() &&
+      col >= r.getColumn() && col < r.getColumn() + r.getNumColumns();
+  });
 }
 
 /**
@@ -66,7 +76,7 @@ function strayLogs() {
    ================================================================ */
 
 const cls = guards(clsSh());
-m.eq(cls.length, 2, '予約表には2つの保護を掛ける（左の表と右の表）');
+m.ok(cls.length >= 4, '予約表は、予備の入力欄を避けて複数範囲を保護する');
 m.ok(cls.every((p) => p.isWarningOnly()),
   '**警告のみ**にする。［OK］で書けるので作業は止まらない');
 
@@ -74,13 +84,14 @@ const byKey = {};
 cls.forEach((p) => { byKey[p.getRange().getA1Notation()] = p.getDescription(); });
 
 m.ok(byKey['C2:F1000'], '左の表（C〜F列＝予約状況・予約日時・保護者氏名・連絡事項）を守る');
-m.ok(byKey['I2:P1000'], '右の表（I〜P列）をまるごと守る。予備の行も含む');
+m.ok(byKey['I2:K1000'], '右の表の日付・時間・状態（I〜K列）を守る');
+m.ok(byKey['O2:P1000'], '予約コード・枠ID（O〜P列）を守る');
 
 m.ok(String(byKey['C2:F1000']).indexOf('A・B列') >= 0,
   '説明に、どこへ書けばよいかを入れる');
-m.ok(String(byKey['I2:P1000']).indexOf('予備') >= 0,
-  '右の表の説明で、予備の行も同じだと明示する');
-m.ok(String(byKey['I2:P1000']).indexOf('この枠に生徒を入れる') >= 0,
+m.ok(String(byKey['I2:K1000']).indexOf('予備') >= 0,
+  '右の表の説明で、黄色い予備行の入力欄を案内する');
+m.ok(String(byKey['I2:K1000']).indexOf('この枠に生徒を入れる') >= 0,
   '説明に、正しい入り口を書く');
 
 // A・B列（名簿）は手で入れる場所なので、守らない
@@ -97,9 +108,10 @@ m.ok(ov[0].isWarningOnly(), '全体ビューも警告のみ');
 
 /* ---------------- 何度作り直しても増えない ---------------- */
 
+const classGuardCount = guards(clsSh()).length;
 g.refreshViews(true);
 g.refreshViews(true);
-m.eq(guards(clsSh()).length, 2, '作り直しても保護は増えない（5分おきに走るので）');
+m.eq(guards(clsSh()).length, classGuardCount, '作り直しても保護は増えない（5分おきに走るので）');
 m.eq(guards(ovSh()).length, 1, '全体ビューも増えない');
 
 /* ---------------- 二重に付いたら片付ける ---------------- */
@@ -108,10 +120,10 @@ m.eq(guards(ovSh()).length, 1, '全体ビューも増えない');
 clsSh().getRange(2, 3, 999, 4).protect()
   .setDescription(g.EDIT_GUARD_TAG + '／生徒別予約状況：二重にできたもの')
   .setWarningOnly(true);
-m.eq(guards(clsSh()).length, 3, '二重になった状態を作る');
+m.eq(guards(clsSh()).length, classGuardCount + 1, '二重になった状態を作る');
 
 g.refreshViews(true);
-m.eq(guards(clsSh()).length, 2, '次の作り直しで、二重ぶんを片付ける');
+m.eq(guards(clsSh()).length, classGuardCount, '次の作り直しで、二重ぶんを片付ける');
 
 /* ---------------- 使わなくなった保護は外す ---------------- */
 
@@ -121,7 +133,7 @@ clsSh().getRange(2, 1, 999, 2).protect()
 g.refreshViews(true);
 m.ok(!guards(clsSh()).some((p) => String(p.getDescription()).indexOf('古い版のキー') >= 0),
   '守る場所を変えたら、前の版の保護は外す（いらない所に警告が出続けないように）');
-m.eq(guards(clsSh()).length, 2, '外したあとも、いまの2つは残る');
+m.eq(guards(clsSh()).length, classGuardCount, '外したあとも、いま必要な保護は残る');
 
 /* ---------------- 学校が自分で付けた保護には触らない ---------------- */
 
@@ -142,7 +154,8 @@ const before = strayLogs().length;
 let toasts = edit(g.CLASS_SHEET_PREFIX + C1, 2, 4, '10月29日 13:40');
 m.eq(toasts.length, 1, '書いた瞬間にトーストで知らせる');
 m.ok(toasts[0].title.indexOf('残りません') >= 0, 'タイトルで「残らない」と伝える');
-m.ok(toasts[0].msg.indexOf('A・B列の名簿だけ') >= 0, 'どこへ書けばよいかを伝える');
+m.ok(toasts[0].msg.indexOf('A・B列の名簿') >= 0 && toasts[0].msg.indexOf('黄色い予備行') >= 0,
+  'どこへ書けばよいかを伝える');
 m.ok(toasts[0].msg.indexOf('この枠に生徒を入れる') >= 0, '正しい入り口を伝える');
 
 let logs = strayLogs();
@@ -151,9 +164,7 @@ m.eq(String(logs[logs.length - 1][3]), C1, 'どのクラスかを残す');
 m.ok(String(logs[logs.length - 1][6]).indexOf('D2') >= 0, 'どのセルかを残す');
 m.ok(String(logs[logs.length - 1][6]).indexOf('10月29日 13:40') >= 0, '書かれた内容も残す');
 
-/* ---------------- 予備の行も同じ（v4.6.15） ---------------- */
-/* v4.6.14 までは予備の行だけ手入力を許していたが、
-   「ここはよくて、ここはだめ」は覚えられないので全部だめに統一した */
+/* ---------------- 予備の行は正しい入力欄（v4.6.18） ---------------- */
 
 const reserveId = m.slotIdOf(g, DAY1, C1, g.RESERVE_INDEX_BASE + 1);
 const idCol = 9 + g.CLASS_HEADER_RIGHT.length;
@@ -164,10 +175,16 @@ for (let i = 0; i < ids.length; i++) {
 }
 m.ok(reserveRow > 0, '予約表に予備の行がある');
 m.eq(String(clsSh().getRange(reserveRow, 11).getValue()), '予備', 'その行は予備');
+m.ok(!guardedAt(clsSh(), reserveRow, 12), '予備行の出席番号には警告の保護を掛けない');
+m.ok(!guardedAt(clsSh(), reserveRow, 13), '予備行の生徒氏名には警告の保護を掛けない');
+m.ok(!guardedAt(clsSh(), reserveRow, 14), '予備行の保護者氏名には警告の保護を掛けない');
+m.ok(guardedAt(clsSh(), reserveRow, 11), '予備行でも状態列は保護する');
+m.ok(guardedAt(clsSh(), 2, 13), '通常行の生徒氏名は引き続き保護する');
 
 toasts = edit(g.CLASS_SHEET_PREFIX + C1, reserveRow, 13, '生徒1_2');
-m.eq(toasts.length, 1, '**予備の行に書いても警告する**（例外を作らない）');
-m.eq(strayLogs().length, before + 2, '予備の行の手入力もログに残る');
+m.eq(toasts.length, 0, '**予備の行への正しい入力は警告しない**');
+m.eq(strayLogs().length, before + 1, '正しい予備入力は未登録ログに残さない');
+m.eq(m.slotValue(g, reserveId, g.COL.STUDENT), '生徒1_2', '予備行の入力を枠マスタへ保存する');
 
 /* ---------------- 名簿（A・B列）は何も言わない ---------------- */
 
@@ -177,7 +194,7 @@ toasts = edit(g.CLASS_SHEET_PREFIX + C1, 5, 2, '転入 太郎');
 m.eq(toasts.length, 0, 'B列（生徒氏名）も警告しない');
 toasts = edit(g.CLASS_SHEET_PREFIX + C1, 5, 1, [4, '転入 太郎']);
 m.eq(toasts.length, 0, 'A・B列をまとめて貼っても警告しない');
-m.eq(strayLogs().length, before + 2, '名簿の入力はログにも残さない');
+m.eq(strayLogs().length, before + 1, '名簿の入力はログにも残さない');
 
 toasts = edit(g.CLASS_SHEET_PREFIX + C1, 1, 3, '見出し');
 m.eq(toasts.length, 0, '見出しの行（1行目）は対象外');
@@ -190,7 +207,7 @@ m.ok(toasts[0].msg.indexOf(g.SH.NG) >= 0,
   '面談を入れない指定は、だめなコマシートか管理画面だと案内する');
 
 logs = strayLogs();
-m.eq(logs.length, before + 3, '全体ビューの手入力もログに残る');
+m.eq(logs.length, before + 2, '全体ビューの手入力もログに残る');
 m.eq(String(logs[logs.length - 1][3]), '', '全体ビューはクラスが無いので空欄');
 
 /* ---------------- 手で入れる前提のシートは対象外 ---------------- */
@@ -209,14 +226,14 @@ m.eq(toasts.length, 0, 'だめなコマシートは、チェックを入れる�
 const recent = g.recentStrayEdits_(14);
 m.ok(recent.length >= 2, 'クラスごとにまとめて拾う');
 const c1Rec = recent.find((x) => x.cls === C1);
-m.eq(c1Rec.count, 2, C1 + ' の手入力を2件数える');
+m.eq(c1Rec.count, 1, C1 + ' の未登録手入力を1件数える');
 const ovRec = recent.find((x) => x.cls === g.SH.OVERVIEW);
 m.eq(ovRec.count, 1, '全体ビューぶんは「全体ビュー」としてまとめる');
 
 const check = g.checkData();
 const found = check.warns.find((w) => w.title.indexOf('手入力がありました') >= 0);
 m.ok(found, 'データ点検で「確認しておきたいもの」に出る');
-m.ok(found.title.indexOf('3件') >= 0, '合計の件数を出す');
+m.ok(found.title.indexOf('2件') >= 0, '合計の件数を出す');
 m.ok(found.detail.indexOf(C1) >= 0, 'どのクラスかを出す');
 m.ok(found.fix.indexOf('入れたつもり') >= 0, '何が起きているかを説明する');
 m.ok(found.fix.indexOf('別の家庭が予約できてしまいます') >= 0,
@@ -232,17 +249,17 @@ const log = g.__ss.getSheetByName(g.SH.LOG);
 const old = new Date();
 old.setDate(old.getDate() - 20);
 log.getRange(log.getLastRow(), 1).setValue(old);
-m.eq(g.recentStrayEdits_(14).reduce((n, x) => n + x.count, 0), 2,
+m.eq(g.recentStrayEdits_(14).reduce((n, x) => n + x.count, 0), 1,
   '14日より前の記録は数えない（いつまでも警告が残らないように）');
 
-/* ---------------- 手入力は取り込まれない ---------------- */
+/* ---------------- 正しい予備入力は残り、誤った表示入力は戻る ---------------- */
 
-m.eq(m.slotValue(g, reserveId, g.COL.STUDENT), '',
-  '予備の行に書いた内容は、枠マスタへ取り込まれていない');
+m.eq(m.slotValue(g, reserveId, g.COL.STUDENT), '生徒1_2',
+  '予備の行に書いた内容は、枠マスタへ保存されている');
 
 g.refreshViews(true);
-m.eq(String(clsSh().getRange(reserveRow, 13).getValue()), '',
-  '書いた内容は、次の作り直しで消える');
+m.eq(String(clsSh().getRange(reserveRow, 13).getValue()), '生徒1_2',
+  '予備の正しい入力は、次の作り直しでも残る');
 m.eq(String(clsSh().getRange(2, 4).getValue()), '—',
   '予約状況の欄も、作り直しで元に戻る');
 

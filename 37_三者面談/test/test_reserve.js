@@ -5,10 +5,10 @@
  * v4.6.13〜16 で入り口も取り込みも作り替えたばかりで、
  * そのときバグが2つ出ている（入れた生徒が次の更新で消える／手入力が素通し）。
  *
- * 入り口は2つだけ。
+ * 入り口は3つ。
  *   ・担任用の管理画面の黄色いセル
  *   ・「予約表_〇組」で行を選んで、メニューの「この枠に生徒を入れる」
- * **表に直接書いても登録されない。**
+ *   ・黄色い予備行のL〜N列へ直接入力
  */
 
 'use strict';
@@ -164,7 +164,7 @@ m.throwsWith(() => g.setReserveStudent_(normalId, '1', 'テスト'),
 m.throwsWith(() => g.assignStudentToSlot_(reserveId, '1'),
   '予備の枠です', '予備の枠を代理登録の経路へ通さない');
 m.throwsWith(() => g.assignStudentToSlot_(reserveId, '1'),
-  '管理画面の黄色いセル', '正しい入り口を案内する');
+  '黄色い行の出席番号', '直接入力できる場所を案内する');
 
 m.failsWith(g.apiAdminSetStatus(PASS, reserveId, 'ブロック'),
   '予備の枠はここでは変更できません', '予備の枠は空き／ブロックに切り替えられない');
@@ -191,20 +191,62 @@ m.throwsWith(() => g.setReserveStudent_(reserve2, '1', 'テスト'),
 g.setReserveStudent_(reserveId, '1', 'テスト');
 m.eq(m.slotValue(g, reserveId, g.COL.STUDENT), '生徒1_1', '同じ枠へ入れ直すのは通る');
 
-/* ---------------- 表への手入力は取り込まない（v4.6.15） ---------------- */
+/* ---------------- 黄色い予備行へ直接入力できる（v4.6.18） ---------------- */
 
 g.refreshViews(true);
 const row = rightRowOf(CLS, reserve2);
 m.ok(row > 0, '予約表の右の表に、予備の行がある');
 
 const sh = g.__ss.getSheetByName(g.CLASS_SHEET_PREFIX + CLS);
-sh.getRange(row, 12, 1, 2).setValues([[2, '生徒1_2']]);   // 出席番号・生徒氏名に直接書く
+let direct = sh.getRange(row, 12, 1, 3);
+direct.setValues([[2, '生徒1_2', '保護者2']]);
+g.__ss.toasts.length = 0;
+g.onEdit({ range: direct });
+
+m.eq(m.slotValue(g, reserve2, g.COL.STUDENT), '生徒1_2',
+  '**黄色い予備行へ直接書くと、枠マスタへ保存される**');
+m.eq(String(m.slotValue(g, reserve2, g.COL.NUMBER)), '2', '出席番号も保存する');
+m.eq(m.slotValue(g, reserve2, g.COL.GUARDIAN), '保護者2', '保護者氏名も保存する');
+m.eq(g.__ss.toasts.length, 0, '正しい直接入力には警告を出さない');
 
 g.refreshViews(true);
-m.eq(m.slotValue(g, reserve2, g.COL.STUDENT), '',
-  '**表に直接書いても、枠マスタには取り込まれない**');
-m.eq(String(sh.getRange(rightRowOf(CLS, reserve2), 13).getValue()), '',
-  '手で書いた内容は、次の作り直しで消える');
+m.eq(String(sh.getRange(rightRowOf(CLS, reserve2), 13).getValue()), '生徒1_2',
+  '表を作り直しても、直接入力した内容が残る');
+
+// すでに別の予備へ入っている1番は、二重に入れず、入力前の内容へ戻す
+const duplicate = sh.getRange(rightRowOf(CLS, reserve2), 12, 1, 2);
+duplicate.setValues([[1, '生徒1_1']]);
+g.__ss.toasts.length = 0;
+g.onEdit({ range: duplicate });
+m.ok(g.__ss.toasts.some((t) => t.title.indexOf('登録できません') >= 0),
+  '二重予約になる直接入力は理由を表示する');
+m.eq(m.slotValue(g, reserve2, g.COL.STUDENT), '生徒1_2', '二重予約は枠マスタへ入れない');
+m.eq(String(sh.getRange(rightRowOf(CLS, reserve2), 13).getValue()), '生徒1_2',
+  '弾いた入力は、シート上も保存済みの内容へ戻す');
+
+// L〜N列をまとめて消せば、予備を空にできる
+direct = sh.getRange(rightRowOf(CLS, reserve2), 12, 1, 3);
+direct.setValues([['', '', '']]);
+g.onEdit({ range: direct });
+m.eq(m.slotValue(g, reserve2, g.COL.STUDENT), '', 'L〜N列を消すと予備を空にできる');
+
+// 氏名だけ、番号だけの入力でも、名簿から残りを補う
+let oneCell = sh.getRange(rightRowOf(CLS, reserve2), 13);
+oneCell.setValue('生徒1_2');
+g.onEdit({ range: oneCell, value: '生徒1_2' });
+m.eq(String(m.slotValue(g, reserve2, g.COL.NUMBER)), '2', '生徒氏名だけでも出席番号を補う');
+
+direct = sh.getRange(rightRowOf(CLS, reserve2), 12, 1, 3);
+direct.setValues([['', '', '']]);
+g.onEdit({ range: direct });
+oneCell = sh.getRange(rightRowOf(CLS, reserve2), 12);
+oneCell.setValue(2);
+g.onEdit({ range: oneCell, value: 2 });
+m.eq(m.slotValue(g, reserve2, g.COL.STUDENT), '生徒1_2', '出席番号だけでも生徒氏名を補う');
+
+direct = sh.getRange(rightRowOf(CLS, reserve2), 12, 1, 3);
+direct.setValues([['', '', '']]);
+g.onEdit({ range: direct });
 
 /* ---------------- 表示（v4.6.16 の色） ---------------- */
 
@@ -245,7 +287,9 @@ m.ok(actions.indexOf('予備コマを空に') >= 0, '予備を空にしたこと
 
 const fromSheet = rows.filter((r) => String(r[6]) === '担任シート');
 const fromWeb = rows.filter((r) => String(r[6]) === '担任Web');
+const fromDirect = rows.filter((r) => String(r[6]) === '担任が予約表に直接入力');
 m.ok(fromSheet.length > 0, 'シートの小窓からの操作と分かる');
 m.ok(fromWeb.length > 0, '管理画面からの操作と分かる');
+m.ok(fromDirect.length > 0, '黄色い行への直接入力だったことも分かる');
 
 m.report('test_reserve');

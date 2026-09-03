@@ -482,10 +482,8 @@ function rebuildClassSheets() {
   var ss = ss_();
   var classes = getClasses();
 
-  // 予備の行を含め、この表への手入力は取り込まない。
-  // 取り込むと、予約の重複確認や名簿との照合を通さずに面談が入ってしまう。
-  // 「作り直される所には書けない」を例外なしにしたほうが、担任にとっても分かりやすい。
-  // 書かれたことには onEdit（Admin.js）が気づき、予約ログに残す。
+  // 黄色い予備行の L〜N列だけは、onEdit（Admin.js）が入力時に枠マスタへ保存する。
+  // それ以外の表示部分への手入力は取り込まない。
 
   var slots = readSlots_();
   var ngSet = {};
@@ -617,6 +615,7 @@ function rebuildClassSheets() {
     var bodyRight = [];
     var colorsRight = [];
     var dateBoundaries = [];
+    var reserveSheetRows = [];
     var prevDate = '';
 
     for (var j = 0; j < slots.length; j++) {
@@ -630,6 +629,7 @@ function rebuildClassSheets() {
       var statusStr = String(sv[COL.STATUS - 1]);
       var rowWarn = statusStr === STATUS.BOOKED && !!ngSet[String(sv[COL.SLOT_ID - 1])];
       var isRes = statusStr === STATUS.RESERVE;
+      if (isRes) reserveSheetRows.push(bodyRight.length + 2);
       bodyRight.push([
         curDate,
         sv[COL.START - 1] + '–' + sv[COL.END - 1] + (isRes ? '（予備）' : ''),
@@ -729,25 +729,54 @@ function rebuildClassSheets() {
     sh.setColumnWidth(15, 100);
     try { sh.hideColumns(9 + headerRight.length); } catch (e) { /* 既に非表示 */ }
 
-    // 作り直される場所には、まとめて書き込む前の警告を掛ける。
-    // 手で入れてよいのは名簿（A・B列）だけ、と一言で言えるようにする。
+    // 作り直される場所には、書き込む前の警告を掛ける。
+    // 黄色い予備行の L〜N列だけは正規の入力欄なので、警告の対象から外す。
     var guardRows = Math.max(sh.getMaxRows() - 1, 1);
     var enterHere = '面談を入れるときは、その行を選んでメニュー「' + MENU.ROOT + ' ▸ ' +
       MENU.ROWOPS + ' ▸ この枠に生徒を入れる」か、担任用の管理画面から行ってください。';
-    ensureEditGuards_(sh, [
+    var guardSpecs = [
       {
         key: '生徒別予約状況',
         range: sh.getRange(2, 3, guardRows, 4),
         note: 'ここは「' + SH.SLOTS + '」から自動で作り直されます。書いた内容は次の更新で消えます。' +
-          'このシートで手入力するのは、A・B列の名簿だけです。' + enterHere
+          'このシートで手入力できるのは、A・B列の名簿と黄色い予備行のL〜N列です。' + enterHere
       },
       {
-        key: '時間枠別予約表',
-        range: sh.getRange(2, 9, guardRows, 8),
+        key: '時間枠_日付時間状態',
+        range: sh.getRange(2, 9, guardRows, 3),
         note: 'ここは「' + SH.SLOTS + '」から自動で作り直されます。書いた内容は次の更新で消えます。' +
-          '黄色い（予備）の行も同じで、直接書いても登録されません。' + enterHere
+          '黄色い予備行では、L〜N列（出席番号・生徒氏名・保護者氏名）へ直接入力できます。' + enterHere
+      },
+      {
+        key: '時間枠_コードと枠ID',
+        range: sh.getRange(2, 15, guardRows, 2),
+        note: '予約コードと枠IDは自動で管理しています。ここへは入力しないでください。'
       }
-    ]);
+    ];
+
+    // 通常行の L〜N列は守り、予備行だけを隙間として残す。
+    // 予備行が日ごとに挟まるため、連続する通常行ごとに範囲を分ける。
+    var blockStart = 2;
+    var lastGuardRow = guardRows + 1;
+    for (var rg = 0; rg < reserveSheetRows.length; rg++) {
+      var reserveRow = reserveSheetRows[rg];
+      if (reserveRow > blockStart) {
+        guardSpecs.push({
+          key: '通常枠入力_' + blockStart + '_' + (reserveRow - 1),
+          range: sh.getRange(blockStart, 12, reserveRow - blockStart, 3),
+          note: '通常の時間枠へ直接書いても登録されません。' + enterHere
+        });
+      }
+      blockStart = reserveRow + 1;
+    }
+    if (blockStart <= lastGuardRow) {
+      guardSpecs.push({
+        key: '通常枠入力_' + blockStart + '_' + lastGuardRow,
+        range: sh.getRange(blockStart, 12, lastGuardRow - blockStart + 1, 3),
+        note: '通常の時間枠へ直接書いても登録されません。' + enterHere
+      });
+    }
+    ensureEditGuards_(sh, guardSpecs);
   }
 
   // A・B列を書き直したので、名簿の読み取り結果を作り直させる
