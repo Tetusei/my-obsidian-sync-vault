@@ -523,6 +523,7 @@ function makeUi(state) {
  * @return {Object} すべてのグローバル（プロジェクトの関数を直接呼べる）
  */
 function load(opt) {
+  installCrashReport();
   opt = opt || {};
 
   const ss = new MockSpreadsheet('三者面談');
@@ -704,16 +705,39 @@ function failsWith(res, needle, label) {
   return false;
 }
 
+let reported = false;
+
 function report(title) {
+  if (reported) return failed === 0;
+  reported = true;
+
+  const name = title || path.basename(process.argv[1] || 'test', '.js');
   const line = failed === 0
-    ? '✅ ' + title + '  ' + passed + '件すべて通過'
-    : '❌ ' + title + '  ' + passed + '件通過 / ' + failed + '件失敗';
+    ? '✅ ' + name + '  ' + passed + '件すべて通過'
+    : '❌ ' + name + '  ' + passed + '件通過 / ' + failed + '件失敗';
   if (failed) {
     failures.forEach((f, i) => console.log('  ' + (i + 1) + '. ' + f));
   }
   console.log(line);
   if (failed) process.exitCode = 1;
   return failed === 0;
+}
+
+/**
+ * 途中で例外が出ても、そこまでの結果と止まった場所を必ず出す。
+ *
+ * 予約が消えるような回帰では、以降の下ごしらえが軒並み失敗して例外になる。
+ * スタックだけが流れて何も報告されないと、どこから壊れたのかが読めない。
+ * load() から自動で仕掛けるので、スイート側で書くことは無い。
+ */
+function installCrashReport() {
+  process.on('uncaughtException', (e) => {
+    failed++;
+    failures.push('途中で止まりました: ' + String(e && e.message ? e.message : e));
+    report(null);
+    process.exit(1);
+  });
+  process.on('exit', () => { report(null); });
 }
 
 /* ================================================================
@@ -814,9 +838,21 @@ function statusOf(g, slotId) {
   return s ? String(s.v[g.COL.STATUS - 1]) : null;
 }
 
+/**
+ * 枠マスタの1セルを読む。枠そのものが消えていれば '(枠が無い)' を返す。
+ *
+ * 回帰したときに「枠が消えた」ことがそのまま失敗の文言に出るようにするため。
+ * 素直に `slotRow(...).v[...]` と書くと、消えた瞬間に例外で止まり、
+ * どのテストが何を期待していたのか分からなくなる。
+ */
+function slotValue(g, slotId, col) {
+  const s = slotRow(g, slotId);
+  return s ? String(s.v[col - 1]) : '(枠が無い)';
+}
+
 module.exports = {
   load,
   ok, eq, throwsWith, unwrap, failsWith, report,
-  seedSchool, slotIdOf, slotRow, statusOf,
+  seedSchool, slotIdOf, slotRow, statusOf, slotValue,
   MockSpreadsheet, MockSheet, MockRange
 };
