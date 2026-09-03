@@ -25,7 +25,7 @@ const PROJECT_DIR = path.join(__dirname, '..');
 
 /** 書式まわりは動作に影響しないので、鎖のようにつなげられる空実装にする */
 const NOOP_RANGE_METHODS = [
-  'setBackground', 'setBackgrounds', 'setFontWeight', 'setFontWeights',
+  'setFontWeight', 'setFontWeights',
   'setFontSize', 'setFontColor', 'setFontFamily', 'setHorizontalAlignment',
   'setHorizontalAlignments', 'setVerticalAlignment', 'setWrap', 'setBorder',
   'setNumberFormat', 'insertCheckboxes', 'clearDataValidations',
@@ -141,6 +141,44 @@ class MockRange {
     return this;
   }
 
+  /**
+   * 背景色は「状態を色で伝える」ための情報なので、本当に覚えておく。
+   * 空実装にすると、予約済と未予約が同じ色でもテストが通ってしまう
+   * （v4.6.16 の「予約済（予備）が未予約と同じ色」がまさにそれ）。
+   */
+  setBackground(color) {
+    for (let r = 0; r < this._rows; r++) {
+      for (let c = 0; c < this._cols; c++) {
+        this._sheet._bg.set((this._row + r) + ',' + (this._col + c), color || '#ffffff');
+      }
+    }
+    return this;
+  }
+
+  setBackgrounds(grid) {
+    for (let r = 0; r < this._rows; r++) {
+      for (let c = 0; c < this._cols; c++) {
+        this._sheet._bg.set((this._row + r) + ',' + (this._col + c),
+          (grid[r] && grid[r][c]) || '#ffffff');
+      }
+    }
+    return this;
+  }
+
+  getBackgrounds() {
+    const out = [];
+    for (let r = 0; r < this._rows; r++) {
+      const row = [];
+      for (let c = 0; c < this._cols; c++) {
+        row.push(this._sheet._bg.get((this._row + r) + ',' + (this._col + c)) || '#ffffff');
+      }
+      out.push(row);
+    }
+    return out;
+  }
+
+  getBackground() { return this.getBackgrounds()[0][0]; }
+
   merge() { this._sheet._merges.push(this.getA1Notation()); return this; }
   breakApart() {
     const a1 = this.getA1Notation();
@@ -202,6 +240,7 @@ class MockSheet {
     this._maxCols = DEFAULT_COLS;
     this._cells = new Map();       // "r,c" → 値
     this._notes = new Map();
+    this._bg = new Map();
     this._merges = [];
     this._protections = [];
     this._hidden = false;
@@ -283,6 +322,7 @@ class MockSheet {
   clear() {
     this._cells.clear();
     this._notes.clear();
+    this._bg.clear();
     this._merges = [];
     // 保護は clear() では消えない前提でモデル化している。
     // 実機の挙動が違うと分かったら、ここを直すこと
