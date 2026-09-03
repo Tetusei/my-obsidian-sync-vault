@@ -574,6 +574,7 @@ function load(opt) {
     dialogs: [],
     mails: [],
     warnings: [],
+    lockAvailable: true,
     nextButton: 'OK',
     nextPromptText: '',
     webAppUrl: opt.webAppUrl || 'https://script.google.com/macros/s/TESTDEPLOY/exec'
@@ -615,7 +616,14 @@ function load(opt) {
     PropertiesService: makePropertiesService(),
     CacheService: cacheService,
     LockService: {
-      getScriptLock: () => ({ tryLock: () => true, releaseLock: () => { }, waitLock: () => { } })
+      getScriptLock: () => ({
+        tryLock: (waitMs) => {
+          state.lastLockWaitMs = waitMs;
+          return state.lockAvailable && (opt.tryLock ? opt.tryLock(waitMs) : true);
+        },
+        releaseLock: () => { },
+        waitLock: () => { }
+      })
     },
     Utilities: makeUtilities(),
     ScriptApp: makeScriptApp(state),

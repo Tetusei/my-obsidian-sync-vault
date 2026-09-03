@@ -34,6 +34,9 @@ const reserve2 = m.slotIdOf(g, '2026-10-30', CLS, g.RESERVE_INDEX_BASE + 1);
 const S1 = { cls: CLS, no: 1, name: '生徒1_1' };
 const S3 = { cls: CLS, no: 3, name: '生徒1_3' };
 
+m.ok(g.CONFIG_ORDER.indexOf(g.RESERVE_COUNT_KEY) >= 0,
+  '予備の枠数は設定シートの並び順に正しいキーで含まれる');
+
 /** 「予約表_〇組」右の表で、枠IDの行を探す */
 function rightRowOf(cls, slotId) {
   const sh = g.__ss.getSheetByName(g.CLASS_SHEET_PREFIX + cls);
@@ -205,6 +208,8 @@ g.onEdit({ range: direct });
 
 m.eq(m.slotValue(g, reserve2, g.COL.STUDENT), '生徒1_2',
   '**黄色い予備行へ直接書くと、枠マスタへ保存される**');
+m.eq(g.__state.lastLockWaitMs, 3000,
+  '直接入力はロックを3秒だけ待ち、onEditの30秒上限へ達しない');
 m.eq(String(m.slotValue(g, reserve2, g.COL.NUMBER)), '2', '出席番号も保存する');
 m.eq(m.slotValue(g, reserve2, g.COL.GUARDIAN), '保護者2', '保護者氏名も保存する');
 m.eq(g.__ss.toasts.length, 0, '正しい直接入力には警告を出さない');
@@ -223,6 +228,20 @@ m.ok(g.__ss.toasts.some((t) => t.title.indexOf('登録できません') >= 0),
 m.eq(m.slotValue(g, reserve2, g.COL.STUDENT), '生徒1_2', '二重予約は枠マスタへ入れない');
 m.eq(String(sh.getRange(rightRowOf(CLS, reserve2), 13).getValue()), '生徒1_2',
   '弾いた入力は、シート上も保存済みの内容へ戻す');
+
+// 保護者の予約処理と重なってロックが取れない場合も、短時間で理由を表示して元へ戻す
+g.__state.lockAvailable = false;
+const busy = sh.getRange(rightRowOf(CLS, reserve2), 12, 1, 2);
+busy.setValues([[3, '生徒1_3']]);
+g.__ss.toasts.length = 0;
+g.onEdit({ range: busy });
+g.__state.lockAvailable = true;
+m.ok(g.__ss.toasts.some((t) => t.msg.indexOf('混み合っています') >= 0),
+  '混雑時は理由を表示して、担任に再入力を案内する');
+m.eq(m.slotValue(g, reserve2, g.COL.STUDENT), '生徒1_2',
+  'ロックを取れなかった入力は枠マスタへ入れない');
+m.eq(String(sh.getRange(rightRowOf(CLS, reserve2), 13).getValue()), '生徒1_2',
+  'ロックを取れなかった入力は、シート上も保存済みの内容へ戻す');
 
 // L〜N列をまとめて消せば、予備を空にできる
 direct = sh.getRange(rightRowOf(CLS, reserve2), 12, 1, 3);

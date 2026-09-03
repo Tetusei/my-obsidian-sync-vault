@@ -378,10 +378,13 @@ function safe_(fn) {
   }
 }
 
-function withLock_(fn) {
+/** 排他処理。待ち時間を省略した通常操作は30秒、onEditなどは短く指定できる。 */
+function withLock_(fn, waitMs) {
   var lock = LockService.getScriptLock();
+  var timeout = Number(waitMs);
+  if (!isFinite(timeout) || timeout < 0) timeout = 30000;
   // 受付開始の直後は予約が集中する。順番待ちの余裕を少し長めに取る
-  if (!lock.tryLock(30000)) {
+  if (!lock.tryLock(timeout)) {
     throw new Error('ただいま混み合っています。少し待ってからもう一度お試しください。');
   }
   try {

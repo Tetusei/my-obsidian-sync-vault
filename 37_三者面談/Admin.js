@@ -440,7 +440,7 @@ function menuRefreshViews() {
     // あとから増えた設定は、初期セットアップを実行しないと行ができない。
     // よく押される項目なので、ここで用意しておく
     ensureConfigKey_(RESERVE_COUNT_KEY,
-      '保護者には見せない予備の枠。最終コマの後ろに作られ、担任が管理画面か「この枠に生徒を入れる」で埋める。0で無し', 0);
+      '保護者には見せない予備の枠。最終コマの後ろに作られ、担任が管理画面・行メニュー・黄色い行のL〜N列への直接入力で埋める。0で無し', 0);
     if (syncAllAutoFlags_()) buildMenu_();
   } catch (e) {
     console.warn('自動処理の状態の同期をスキップ:', e);
@@ -1467,6 +1467,7 @@ function assignStudentToSlot_(slotId, text) {
  * @param {string} input 出席番号か氏名。空文字ならその枠を空にする
  * @param {string} source 予約ログに残す操作元
  * @param {string=} guardian 保護者氏名。省略時は現在の値を保つ
+ * @param {number=} lockWaitMs ロックを待つ時間。単純onEditからは短く指定する
  * @return {{no:(number|string), name:string, cls:string, dateLabel:string, start:string, end:string}}
  */
 function setReserveStudent_(slotId, input, source, guardian) {
@@ -1474,6 +1475,7 @@ function setReserveStudent_(slotId, input, source, guardian) {
   var from = source || '担任';
   var guardianProvided = arguments.length >= 4;
   var guardianText = guardianProvided ? String(guardian == null ? '' : guardian).trim() : '';
+  var lockWaitMs = arguments.length >= 5 ? Number(arguments[4]) : 30000;
 
   return withLock_(function () {
     var found = findSlotRow_(slotId);
@@ -1543,7 +1545,7 @@ function setReserveStudent_(slotId, input, source, guardian) {
       no: hit.no, name: hit.name, cls: cls,
       dateLabel: when.dateLabel, start: when.start, end: when.end
     };
-  });
+  }, lockWaitMs);
 }
 
 /** 枠マスタの予備コマを、該当クラスの表示行へすぐ書き写す。 */
@@ -1681,7 +1683,9 @@ function handleReserveEntryEdit_(e, sh) {
       if (!input && typedGuardian) {
         throw new Error('先に出席番号か生徒氏名を入力してください。');
       }
-      setReserveStudent_(slotId, input, '担任が予約表に直接入力', typedGuardian);
+      // 単純 onEdit は最長30秒なので、保護者予約と重なったときは早めに戻して
+      // 担任へ再入力を案内する。Web・メニュー操作は従来どおり30秒待つ。
+      setReserveStudent_(slotId, input, '担任が予約表に直接入力', typedGuardian, 3000);
     } catch (err) {
       try {
         var found = findSlotRow_(slotId);
@@ -1783,8 +1787,20 @@ function onEdit(e) {
       }
     }
   } catch (err) {
-    // メニューの見た目だけの話なので、編集そのものは邪魔しない
-    console.warn('onEdit でのメニュー更新に失敗:', err);
+    // onEdit はメニュー更新だけでなく、黄色い予備行の保存も担当している。
+    // 失敗を黙って飲み込むと「入力したつもり」になるため、担任へ必ず知らせる。
+    try {
+      var failedSheet = e && e.range ? e.range.getSheet() : null;
+      var failedName = failedSheet ? failedSheet.getName() : '';
+      if (failedSheet && failedName.indexOf(CLASS_SHEET_PREFIX) === 0) {
+        failedSheet.getParent().toast(
+          '予備枠への入力を保存できませんでした。表示を更新してから、もう一度入力してください。',
+          '⚠ 入力を保存できません', 15);
+        logStrayEdit_(failedName.slice(CLASS_SHEET_PREFIX.length), e,
+          '予備枠の保存処理でエラー: ' + String(err.message || err));
+      }
+    } catch (notifyErr) { /* 通知にも失敗した場合だけコンソールへ残す */ }
+    console.warn('onEdit の処理に失敗:', err);
   }
 }
 
