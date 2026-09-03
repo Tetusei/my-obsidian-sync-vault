@@ -1,7 +1,7 @@
 /**
  * 保護者へ配る案内プリント（A4・1枚）をPDFで作る。
  *
- * QRコードは画像を使わず、セルの背景色で描く。
+ * QRコードはスクリプト内で生成したPNG画像をシートへ貼る。
  * 外部サービスにURLを送らずに済み、印刷でもかすれない。
  */
 
@@ -251,18 +251,38 @@ function buildHandoutSheet_(sh, cfg, url) {
   mergeText_(sh, sibRow + 2, 2, sibLines.length, width - 2,
     sibLines.join(LF), { size: 14, wrap: true, height: 30 });
 
+  // ── AndroidでGoogleアカウントの切替に引っかかった場合
+  // 「シークレットモード」とだけ書いても操作が伝わらないため、
+  // 保護者が紙を見ながら進められる順番で案内する。
+  var helpRow = sibRow + sibLines.length + 4;
+  mergeText_(sh, helpRow, 2, 1, width - 2,
+    '予約画面が開かない場合', {
+      size: 14, bold: true, height: 30, bg: '#fff4ce'
+    });
+
+  var androidHelpLines = [
+    'Androidスマートフォンで「ファイルを開くことができません」と表示された場合は、次の操作をお試しください。',
+    '1．画面上部のアドレス欄を押し、「コピー」のマークを押します。',
+    '2．Chromeの右上にある「︙」を押し、「新しいシークレット タブ」を選びます。',
+    '3．新しく開いた画面上部の入力欄を長押しして「貼り付け」を選び、画面を開きます。',
+    '操作が難しい場合は、別のスマートフォンやタブレットでお試しください。',
+    'それでも予約画面が開かない場合は、学校までご連絡ください。'
+  ];
+  mergeText_(sh, helpRow + 2, 2, androidHelpLines.length, width - 2,
+    androidHelpLines.join(LF),
+    { size: 11, wrap: true, height: 23, color: '#3c4043' });
+
   // ── 注意書き
   var notes = [
     '※ ご都合の悪い時間は、はじめから表示されません。',
     '※ 予約の変更・取り消しには、4桁の予約コードが必要です。控えをなくされた場合は担任までご連絡ください。'
   ];
   notes.push('※ ごきょうだいが同じクラスの場合や、続いた時間が取れない場合は、お一人ずつご予約ください。');
-  notes.push('※ ご不明な点や、この方法での予約が難しい場合も、担任までご連絡ください。');
 
-  var notesRow = sibRow + sibLines.length + 4;
+  var notesRow = helpRow + androidHelpLines.length + 4;
   mergeText_(sh, notesRow, 2, notes.length, width - 2,
     notes.join(LF),
-    { size: 12, wrap: true, height: 27, color: '#3c4043' });
+    { size: 11, wrap: true, height: 25, color: '#3c4043' });
 
   // ── すき間の行を詰める
   //    何も置いていない行は既定の21pxのままで、合計するとA4を超えてしまう。
@@ -270,9 +290,11 @@ function buildHandoutSheet_(sh, cfg, url) {
   var spacers = [1, 4, 5, 9, 11, 13];
   for (var sp = Math.max(afterQr + HANDOUT_QR_QUIET - 1, sideEnd + 1); sp < sibRow; sp++) spacers.push(sp);
   spacers.push(sibRow + 1);
-  for (var sp2 = sibRow + 2 + sibLines.length; sp2 < notesRow; sp2++) spacers.push(sp2);
-  for (var sp3 = 0; sp3 < spacers.length; sp3++) {
-    try { sh.setRowHeight(spacers[sp3], HANDOUT_SPACER_PX); } catch (e) { /* 無視 */ }
+  for (var sp2 = sibRow + 2 + sibLines.length; sp2 < helpRow; sp2++) spacers.push(sp2);
+  spacers.push(helpRow + 1);
+  for (var sp3 = helpRow + 2 + androidHelpLines.length; sp3 < notesRow; sp3++) spacers.push(sp3);
+  for (var sp4 = 0; sp4 < spacers.length; sp4++) {
+    try { sh.setRowHeight(spacers[sp4], HANDOUT_SPACER_PX); } catch (e) { /* 無視 */ }
   }
 
   sh.setHiddenGridlines(true);
