@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>担任用 三者面談予約システム 操作の手引き v4.6.18</title>
+<style>
+  @page { size: A4; margin: 15mm 16mm 17mm; }
+  * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { margin: 0; color: #263238; font-family: "Yu Gothic", "Meiryo", sans-serif; font-size: 12pt; line-height: 1.7; }
+  h1 { margin: 0 0 8mm; color: #174ea6; font-size: 29pt; line-height: 1.3; letter-spacing: .02em; }
+  h2 { margin: 0 0 5mm; padding: 3mm 4mm; color: #fff; background: #1967d2; border-radius: 2mm; font-size: 20pt; }
+  h3 { margin: 6mm 0 2mm; color: #174ea6; font-size: 15pt; border-bottom: 1.2pt solid #a8c7fa; }
+  p { margin: 0 0 3.5mm; }
+  ul, ol { margin: 1.5mm 0 4mm 7mm; padding-left: 5mm; }
+  li { margin: 1.5mm 0; }
+  table { width: 100%; border-collapse: collapse; margin: 3mm 0 5mm; font-size: 10.8pt; }
+  th { color: #fff; background: #3c78d8; text-align: left; }
+  th, td { border: .7pt solid #b7c9e2; padding: 2.6mm 2.8mm; vertical-align: top; }
+  tr:nth-child(even) td { background: #f7faff; }
+  .page { break-after: page; min-height: 257mm; position: relative; }
+  .page:last-child { break-after: auto; }
+  .cover { display: flex; flex-direction: column; justify-content: center; min-height: 257mm; }
+  .eyebrow { color: #5f6368; font-weight: 700; letter-spacing: .18em; }
+  .lead { font-size: 14pt; line-height: 1.85; }
+  .meta { margin-top: 10mm; padding: 5mm; background: #e8f0fe; border-left: 5pt solid #1967d2; }
+  .box { margin: 3mm 0 5mm; padding: 4mm 4.5mm; border-radius: 2mm; background: #f1f8ff; border: 1pt solid #a8c7fa; }
+  .important { background: #fff4e5; border-color: #f9ab00; }
+  .danger { background: #fce8e6; border-color: #d93025; }
+  .ok { background: #e6f4ea; border-color: #188038; }
+  .menu { font-weight: 700; color: #174ea6; }
+  .sheet { font-weight: 700; color: #137333; }
+  .steps { counter-reset: step; list-style: none; margin-left: 0; padding-left: 0; }
+  .steps li { counter-increment: step; position: relative; margin: 4mm 0; padding: 3mm 3mm 3mm 13mm; background: #f7faff; border-radius: 2mm; }
+  .steps li::before { content: counter(step); position: absolute; left: 3mm; top: 3mm; width: 7mm; height: 7mm; color: #fff; background: #1967d2; border-radius: 50%; text-align: center; line-height: 7mm; font-weight: 700; }
+  .quick { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; margin: 5mm 0; }
+  .quick div { min-height: 34mm; padding: 4mm; border-radius: 2mm; background: #e8f0fe; border: 1pt solid #a8c7fa; }
+  .quick strong { display: block; color: #174ea6; font-size: 13pt; margin-bottom: 1.5mm; }
+  .small { color: #5f6368; font-size: 9.8pt; }
+  .footer { position: absolute; bottom: 0; left: 0; right: 0; color: #6b7280; font-size: 8.5pt; text-align: right; }
+</style>
+</head>
+<body>
+
+<section class="page cover">
+  <div class="eyebrow">担任の先生用</div>
+  <h1>三者面談 予約システム<br>かんたん操作の手引き</h1>
+  <p class="lead">自分のクラスの予約確認と調整に必要な操作だけをまとめました。初期設定・受付開始・デプロイなど、システム担当者向けの作業は載せていません。</p>
+  <div class="meta"><strong>対象バージョン：v4.6.18</strong><br>改訂日：2026年9月3日<br>対象：担任・学年職員</div>
+  <div class="box important"><strong>まず覚えること</strong><br>通常の予約を入れるときはメニューを使います。黄色い「予備」行だけは、出席番号・生徒氏名・保護者氏名へ直接入力できます。</div>
+</section>
+
+<section class="page">
+  <h2>1　担任が使う場所</h2>
+  <div class="quick">
+    <div><strong>予約表_自分のクラス</strong>予約の確認、代理登録、取消、黄色い予備枠への入力</div>
+    <div><strong>だめなコマ</strong>出張・会議など、面談できない時間の指定</div>
+    <div><strong>全体ビュー</strong>学年・学校全体の予約状況を確認</div>
+    <div><strong>三者面談メニュー</strong>表示更新、行の操作、自分のクラスのPDF作成</div>
+  </div>
+  <h3>自分のクラスを開く</h3>
+  <ol class="steps">
+    <li><span class="sheet">全体ビュー</span> を開きます。</li>
+    <li>上部にある自分のクラス名を押します。</li>
+    <li><span class="sheet">予約表_〇組</span> が開きます。戻るときはG1の「◀ 全体ビュー」を押します。</li>
+  </ol>
+  <h3>予約表の見方</h3>
+  <table><tr><th>左側</th><th>右側</th></tr>
+    <tr><td>生徒ごとの予約状況<br>未予約／予約済／予約済（予備）</td><td>時間順の予約表<br>日付・時間・状態・生徒名・保護者名</td></tr>
+  </table>
+  <div class="box"><strong>表示が古いと感じたら</strong><br><span class="menu">三者面談 ▸ 全体ビュー・予約表を更新</span> を押します。その後も変わらない場合は、ブラウザを再読み込みしてください。</div>
+  <div class="footer">1 / 担任が使う場所</div>
+</section>
+
+<section class="page">
+  <h2>2　面談できない時間を指定する</h2>
+  <p>出張・会議・休憩など、保護者に選んでほしくない時間を「だめなコマ」にします。</p>
+  <ol class="steps">
+    <li><span class="sheet">だめなコマ</span> シートを開きます。見当たらない場合は、<span class="menu">三者面談 ▸ だめなコマ ▸ 一覧シートを作る・更新する</span> を押します。</li>
+    <li>自分のクラスの列を探し、面談できない時間にチェックを入れます。</li>
+    <li>自動反映がオフの場合は、<span class="menu">三者面談 ▸ だめなコマ ▸ 指定を枠に反映する</span> を押します。</li>
+  </ol>
+  <h3>1件だけ止めたいとき</h3>
+  <p><span class="sheet">予約表_〇組</span> の右側で対象行を選び、<span class="menu">三者面談 ▸ 選んだ行を操作 ▸ 面談を入れない（ブロック）にする</span> を押します。</p>
+  <div class="box danger"><strong>すでに予約がある時間は、自動で取り消されません。</strong><br>赤い「要調整」になります。保護者へ連絡し、時間を変更するか予約を取り消してください。</div>
+  <h3>表示の意味</h3>
+  <table><tr><th>表示</th><th>意味</th></tr>
+    <tr><td>緑「空き」</td><td>保護者が予約できます。</td></tr>
+    <tr><td>白「予約済」</td><td>予約が入っています。</td></tr>
+    <tr><td>灰色「×」</td><td>面談なし。保護者には表示されません。</td></tr>
+    <tr><td>赤「要調整」</td><td>予約済みですが、だめなコマにも指定されています。</td></tr>
+    <tr><td>黄色「予備」</td><td>保護者には見えない、担任用の予備枠です。</td></tr>
+  </table>
+  <div class="footer">2 / だめなコマ</div>
+</section>
+
+<section class="page">
+  <h2>3　通常の空き枠へ代理登録する</h2>
+  <p>電話や連絡帳で依頼されたときなど、担任が保護者の代わりに予約を入れられます。</p>
+  <ol class="steps">
+    <li><span class="sheet">予約表_〇組</span> の右側で、緑色の「空き」行を1つ選びます。</li>
+    <li><span class="menu">三者面談 ▸ 選んだ行を操作 ▸ この枠に生徒を入れる（代理登録）</span> を押します。</li>
+    <li>生徒を選んで登録します。</li>
+    <li>表示された<strong>4桁の予約コード</strong>を、必ず保護者へ伝えます。</li>
+  </ol>
+  <div class="box danger"><strong>通常枠には直接入力しません。</strong><br>通常枠の出席番号・生徒氏名・保護者氏名へ直接書くと、予約コードが発行されず、正式な予約になりません。入力前の警告が出たらキャンセルし、上のメニューを使ってください。</div>
+  <h3>予約を取り消す</h3>
+  <ol class="steps">
+    <li>取り消す予約の行を選びます。</li>
+    <li><span class="menu">三者面談 ▸ 選んだ行を操作 ▸ 予約を取り消す</span> を押します。</li>
+    <li>日時・生徒氏名を確認して実行します。</li>
+  </ol>
+  <div class="box important"><strong>取り消し後</strong><br>必要に応じて保護者へ連絡します。操作内容は予約ログに記録されます。</div>
+  <div class="footer">3 / 代理登録・取消</div>
+</section>
+
+<section class="page">
+  <h2>4　黄色い「予備」枠へ入力する</h2>
+  <p>予備枠は、電話対応や個別調整などで担任が使います。保護者の予約画面には表示されません。</p>
+  <div class="box important"><strong>直接入力できるのは、黄色い予備行の3列だけです。</strong><br><strong>L列：出席番号　M列：生徒氏名　N列：保護者氏名</strong></div>
+  <table><tr><th>入力方法</th><th>結果</th></tr>
+    <tr><td>出席番号だけ入力</td><td>生徒氏名が名簿から自動で入ります。</td></tr>
+    <tr><td>生徒氏名だけ入力</td><td>出席番号が名簿から自動で入ります。</td></tr>
+    <tr><td>保護者氏名を入力</td><td>予備枠の情報として保存されます。</td></tr>
+    <tr><td>L～N列をまとめて消す</td><td>その予備枠が空になります。</td></tr>
+  </table>
+  <div class="box ok"><strong>間違いは自動で確認されます</strong><br>名簿にない生徒、番号と氏名の不一致、すでに別の面談がある生徒は登録されません。画面右下に理由が表示され、セルは元の内容へ戻ります。</div>
+  <h3>直接入力以外の方法</h3>
+  <p>予備行を選び、<span class="menu">選んだ行を操作 ▸ この枠に生徒を入れる</span> を使うこともできます。担任用Web管理画面が案内されている学校では、黄色いセルを押して登録することもできます。</p>
+  <div class="box"><strong>黄色い行なのに警告が出る場合</strong><br>シートを再読み込みし、<span class="menu">三者面談 ▸ 全体ビュー・予約表を更新</span> を1回実行してください。それでも出る場合はシステム担当者へ連絡します。</div>
+  <div class="footer">4 / 予備枠</div>
+</section>
+
+<section class="page">
+  <h2>5　面談前日と当日</h2>
+  <h3>面談前日の確認</h3>
+  <ol class="steps">
+    <li><span class="menu">三者面談 ▸ 全体ビュー・予約表を更新</span> を押します。</li>
+    <li>自分のクラスで、未予約・要調整・黄色い予備枠を確認します。</li>
+    <li>必要な家庭へ連絡し、時間を調整します。</li>
+    <li>自分のクラスのPDFを作成します。</li>
+  </ol>
+  <h3>担任が使う印刷物</h3>
+  <table><tr><th>メニュー</th><th>用途</th></tr>
+    <tr><td><span class="menu">印刷用PDFを作る ▸ クラス別予約表（開いているクラスのみ）</span></td><td>予約時刻を手元で確認する。</td></tr>
+    <tr><td><span class="menu">印刷用PDFを作る ▸ 当日の面談記録シート（開いているクラスのみ）</span></td><td>面談内容の記録用紙として使う。</td></tr>
+  </table>
+  <div class="box important"><strong>「開いているクラスのみ」を使います</strong><br>自分の <span class="sheet">予約表_〇組</span> を開いた状態で実行してください。「全クラス」は担当者向けです。</div>
+  <h3>当日の変更</h3>
+  <ul>
+    <li>時間変更が必要な場合は、現在の予約を取り消してから新しい枠へ代理登録します。</li>
+    <li>予備枠を使う場合は、黄色い行のL～N列へ入力します。</li>
+    <li>変更後は「全体ビュー・予約表を更新」を押し、印刷物にも手書きで反映します。</li>
+  </ul>
+  <div class="footer">5 / 面談前日・当日</div>
+</section>
+
+<section class="page">
+  <h2>6　困ったとき</h2>
+  <table><tr><th>症状</th><th>対応</th></tr>
+    <tr><td>「三者面談」メニューがない</td><td>スプレッドシートを再読み込みします。</td></tr>
+    <tr><td>予約が表に出てこない</td><td>「全体ビュー・予約表を更新」を押し、ブラウザも再読み込みします。</td></tr>
+    <tr><td>通常枠で警告が出た</td><td>直接入力せず、「選んだ行を操作」から代理登録します。</td></tr>
+    <tr><td>予備へ入力すると元に戻る</td><td>画面右下の理由を確認します。名簿外、不一致、二重予約が考えられます。</td></tr>
+    <tr><td>黄色い予備行でも警告が出る</td><td>再読み込み後、「全体ビュー・予約表を更新」を1回押します。</td></tr>
+    <tr><td>取消・変更する予約が見つからない</td><td>予約ログを確認するか、学年・システム担当者へ連絡します。</td></tr>
+    <tr><td>保護者が予約画面を開けない</td><td>システム担当者へ連絡します。担任がデプロイ設定を変更する必要はありません。</td></tr>
+  </table>
+  <div class="box"><strong>担当者へ伝えること</strong><br>表示されたメッセージ全文、発生日時、クラス、生徒氏名、操作した行・セルを伝えてください。画面の写真があると、原因を確認しやすくなります。</div>
+  <h3>担任用チェックリスト</h3>
+  <ul>
+    <li>□ 面談できない時間にチェックを入れた</li>
+    <li>□ 未予約者と要調整を確認した</li>
+    <li>□ 代理登録の予約コードを保護者へ伝えた</li>
+    <li>□ 予備枠は黄色い行のL～N列だけに入力した</li>
+    <li>□ 面談前日に自分のクラスのPDFを作成した</li>
+  </ul>
+  <div class="footer">担任用 三者面談予約システム 操作の手引き v4.6.18 ／ 2026-09-03</div>
+</section>
+
+</body>
+</html>
