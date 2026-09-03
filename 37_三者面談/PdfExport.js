@@ -5,7 +5,7 @@
  * 2. 当日用 面談メモ・カルテ付き 進行シート（バインダー余白確保＋行幅最大化フルフィット）
  */
 
-var PDF_FOLDER_NAME = '📄_三者面談PDF';
+// PDF_FOLDER_NAME は Config.js で定義している（二重定義を避けるためここでは宣言しない）
 
 /**
  * 全クラスの予約一覧PDFを一括出力する
@@ -290,7 +290,9 @@ function exportSingleMeetingNotesPdf_(clsName, folder, nowStr, fileDateStr) {
           var globalSlotIndex = p * SLOTS_PER_PAGE + idx + 1;
           var timeStr = slot[COL.START - 1] + '〜' + slot[COL.END - 1];
           var st = String(slot[COL.STATUS - 1]);
-          var isBooked = (st === STATUS.BOOKED);
+          // 予備の枠に担任が入れたぶんも、当日は同じ面談として扱う
+          var isBooked = (st === STATUS.BOOKED) ||
+            (st === STATUS.RESERVE && !!slot[COL.STUDENT - 1]);
           var stNo = slot[COL.NUMBER - 1] ? slot[COL.NUMBER - 1] + '番' : '';
           var stName = slot[COL.STUDENT - 1] || '';
           var guardian = slot[COL.GUARDIAN - 1] ? slot[COL.GUARDIAN - 1] + ' 様' : '';
@@ -298,7 +300,8 @@ function exportSingleMeetingNotesPdf_(clsName, folder, nowStr, fileDateStr) {
 
           // 枠ヘッダー行（高さ30px・フォント11pt太字）
           sheet.getRange(curRow, 1, 1, 4).merge()
-            .setValue('【第' + globalSlotIndex + '枠】 ' + timeStr + '　' + (isBooked ? stNo + ' ' + stName + '（保護者: ' + guardian + '）' : '（※' + st + '）'))
+            .setValue('【第' + globalSlotIndex + '枠】 ' + timeStr + '　' + (isBooked ? stNo + ' ' + stName + '（保護者: ' + guardian + '）'
+              : (st === STATUS.BLOCKED ? '（※面談なし）' : '（※空き）')))
             .setFontWeight('bold')
             .setFontSize(11)
             .setBackground(isBooked ? '#e8f0fe' : '#f1f3f4')
@@ -387,8 +390,139 @@ function exportSingleMeetingNotesPdf_(clsName, folder, nowStr, fileDateStr) {
 /**
  * PDF保存用フォルダを取得または作成
  */
+/**
+ * 当日の受付本部用に、全校の予約を時間順に並べた一覧をPDFにする。
+ *
+ * クラス別の予約表は担任の手元用で、玄関で「いま誰が来るのか」を見るには向かない。
+ * こちらは日付 → 時間 → クラスの順に、来校する家庭だけを並べる。
+ * @return {{fileName:string, fileUrl:string, folderName:string, folderUrl:string, count:number}}
+ */
+function exportDaySchedulePdf() {
+  var classes = getClasses();
+  var order = {};
+  for (var c = 0; c < classes.length; c++) order[classes[c].name] = c;
+
+  var slots = readSlots_();
+  var rows = [];
+  for (var i = 0; i < slots.length; i++) {
+    var v = slots[i].v;
+    if (!isTakenSlot_(v)) continue;   // 予備に入れたぶんも受付一覧に載せる
+    var q = parseSlotId_(String(v[COL.SLOT_ID - 1]));
+    var clsName = String(v[COL.CLASS - 1]);
+    rows.push({
+      ymd: ymd_(v[COL.DATE - 1]),
+      dateLabel: dateLabel_(v[COL.DATE - 1]),
+      idx: q ? q.idx : 0,
+      clsOrder: order[clsName] == null ? 999 : order[clsName],
+      values: [
+        dateLabel_(v[COL.DATE - 1]),
+        String(v[COL.START - 1]) + '–' + String(v[COL.END - 1]),
+        clsName,
+        teacherOf_(clsName),
+        v[COL.NUMBER - 1],
+        String(v[COL.STUDENT - 1] || ''),
+        String(v[COL.GUARDIAN - 1] || '')
+      ]
+    });
+  }
+
+  if (!rows.length) {
+    throw new Error('予約が1件もありません。受付が始まってから実行してください。');
+  }
+
+  rows.sort(function (a, b) {
+    if (a.ymd !== b.ymd) return a.ymd < b.ymd ? -1 : 1;
+    if (a.idx !== b.idx) return a.idx - b.idx;
+    return a.clsOrder - b.clsOrder;
+  });
+
+  var now = new Date();
+  var nowStr = Utilities.formatDate(now, TZ, 'yyyy/MM/dd HH:mm');
+  var fileDateStr = Utilities.formatDate(now, TZ, 'yyyyMMdd_HHmm');
+  var folder = getOrCreatePdfFolder_();
+
+  var tempSs = SpreadsheetApp.create('Temp_PDF_受付一覧_' + fileDateStr);
+  var tempSsId = tempSs.getId();
+
+  try {
+    var sh = tempSs.getSheets()[0];
+    sh.setName('当日受付一覧');
+
+    var header = ['日付', '時間', 'クラス', '担任', '出席番号', '生徒氏名', '保護者氏名'];
+    var nCol = header.length;
+
+    sh.getRange(1, 1, 1, nCol).merge()
+      .setValue('三者面談 当日受付一覧（全校・時間順）　' + rows.length + '件　（作成日時: ' + nowStr + '）')
+      .setFontWeight('bold').setFontSize(12).setBackground('#cfe2f3')
+      .setHorizontalAlignment('center').setVerticalAlignment('middle');
+    sh.setRowHeight(1, 30);
+
+    sh.getRange(2, 1, 1, nCol).setValues([header])
+      .setFontWeight('bold').setBackground('#e8eaed')
+      .setHorizontalAlignment('center').setVerticalAlignment('middle');
+
+    var body = rows.map(function (r) { return r.values; });
+    sh.getRange(3, 1, body.length, nCol).setValues(body)
+      .setVerticalAlignment('middle').setWrap(true)
+      .setBorder(true, true, true, true, true, true, '#b7b7b7', SpreadsheetApp.BorderStyle.SOLID);
+    sh.getRange(2, 1, 1, nCol)
+      .setBorder(true, true, true, true, true, true, '#5f6368', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+    sh.getRange(3, 5, body.length, 1).setHorizontalAlignment('center');
+
+    // 日付が変わるところと、時間が変わるところに線を引く
+    var prevYmd = '', prevIdx = -1;
+    for (var r2 = 0; r2 < rows.length; r2++) {
+      if (rows[r2].ymd !== prevYmd) {
+        sh.getRange(r2 + 3, 1, 1, nCol).setBorder(true, null, null, null, null, null,
+          '#5f6368', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+        prevYmd = rows[r2].ymd;
+        prevIdx = -1;
+      } else if (rows[r2].idx !== prevIdx) {
+        sh.getRange(r2 + 3, 1, 1, nCol).setBorder(true, null, null, null, null, null,
+          '#9aa0a6', SpreadsheetApp.BorderStyle.SOLID);
+      }
+      if (rows[r2].idx !== prevIdx) prevIdx = rows[r2].idx;
+    }
+
+    var widths = [95, 105, 95, 90, 55, 110, 110];
+    for (var w = 0; w < widths.length; w++) sh.setColumnWidth(w + 1, widths[w]);
+
+    sh.setFrozenRows(2);
+    SpreadsheetApp.flush();
+
+    var url = 'https://docs.google.com/spreadsheets/d/' + tempSsId + '/export?' +
+      'exportFormat=pdf&format=pdf' +
+      '&size=A4&portrait=true&fitw=true&gridlines=false' +
+      '&printtitle=false&sheetnames=false' +
+      '&top_margin=0.6&bottom_margin=0.35&left_margin=0.6&right_margin=0.3' +
+      '&fzr=true';
+
+    var response = UrlFetchApp.fetch(url, {
+      headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
+      muteHttpExceptions: true
+    });
+
+    var blob = response.getBlob().setName('三者面談_当日受付一覧_' + fileDateStr + '.pdf');
+    var file = folder.createFile(blob);
+
+    return {
+      fileName: file.getName(),
+      fileUrl: file.getUrl(),
+      folderName: PDF_FOLDER_NAME,
+      folderUrl: folder.getUrl(),
+      count: rows.length
+    };
+  } finally {
+    try {
+      DriveApp.getFileById(tempSsId).setTrashed(true);
+    } catch (e) {
+      console.warn('一時ファイル削除スキップ:', e);
+    }
+  }
+}
+
 function getOrCreatePdfFolder_() {
-  var ssFile = DriveApp.getFileById(SPREADSHEET_ID);
+  var ssFile = DriveApp.getFileById(ssId_());
   var parents = ssFile.getParents();
   var parentFolder = parents.hasNext() ? parents.next() : DriveApp.getRootFolder();
 

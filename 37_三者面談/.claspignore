@@ -1,0 +1,9 @@
+**/**
+!appsscript.json
+!*.js
+!*.html
+test/**
+tmp/**
+remote_primary/**
+remote_secondary/**
+node_modules/**

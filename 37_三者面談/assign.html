@@ -1,0 +1,125 @@
+<!-- 「選んだ行を操作 ▸ この枠に生徒を入れる」で開く小窓。
+     氏名を打たせると表記ゆれで弾かれるので、そのクラスの名簿から選ばせる -->
+<style>
+  body {
+    margin: 0; padding: 16px 18px;
+    font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif;
+    font-size: 14px; line-height: 1.7; color: #202124; background: #fff;
+  }
+  h3 { margin: 0 0 2px; font-size: 1.02rem; }
+  .when { color: #5f6368; font-size: .88rem; margin: 0 0 14px; }
+  label { display: block; font-size: .82rem; color: #5f6368; margin: 0 0 4px; }
+  select {
+    width: 100%; padding: 9px 10px; font-size: 1rem;
+    border: 1px solid #dadce0; border-radius: 6px; background: #fff; color: #202124;
+  }
+  .btns { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; flex-wrap: wrap; }
+  button {
+    padding: 9px 14px; font-size: .92rem; border-radius: 6px;
+    border: 1px solid #dadce0; background: #fff; color: #202124; cursor: pointer;
+  }
+  button.go { background: #1a73e8; border-color: #1a73e8; color: #fff; font-weight: 700; }
+  button:disabled { opacity: .55; cursor: progress; }
+  .msg { margin-top: 14px; padding: 11px 13px; border-radius: 6px; font-size: .9rem; white-space: pre-wrap; }
+  .msg.err { background: #fce8e6; color: #c5221f; }
+  .msg.ok { background: #e6f4ea; color: #137333; }
+  .code {
+    font-size: 1.7rem; font-weight: 700; letter-spacing: .28em; text-align: center;
+    background: #e8f0fe; color: #1a73e8; border-radius: 8px; padding: 10px; margin: 10px 0 4px;
+  }
+  .hint { color: #5f6368; font-size: .82rem; margin: 6px 0 0; line-height: 1.5; }
+  .hide { display: none; }
+</style>
+
+<h3 id="title">読み込んでいます…</h3>
+<p class="when" id="when"></p>
+
+<div id="form">
+  <label for="sel">この時間に入れる生徒</label>
+  <select id="sel" disabled>
+    <option>名簿を読み込んでいます…</option>
+  </select>
+  <p class="hint" id="hint">クラスの人数によっては、一覧が出るまで数秒かかります。そのままお待ちください。</p>
+  <div class="btns">
+    <button onclick="google.script.host.close()">やめる</button>
+    <button class="go" id="go" onclick="submit()" disabled>この生徒を入れる</button>
+  </div>
+</div>
+
+<div id="result" class="hide"></div>
+<div id="err"></div>
+
+<script>
+  var SLOT_ID = <?!= JSON.stringify(slotId) ?>;
+  var D = null;
+
+  function el(id) { return document.getElementById(id); }
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  google.script.run.withFailureHandler(function (e) {
+    el('title').textContent = '読み込めませんでした';
+    el('err').innerHTML = '<div class="msg err">' +
+      esc((e && e.message) || '通信に失敗しました。') + '</div>';
+    el('form').classList.add('hide');
+  }).withSuccessHandler(function (r) {
+    if (!r || !r.ok) {
+      el('title').textContent = '読み込めませんでした';
+      el('err').innerHTML = '<div class="msg err">' + esc((r && r.error) || '枠の情報を読めませんでした。') + '</div>';
+      el('form').classList.add('hide');
+      return;
+    }
+    D = r;
+    el('hint').classList.add('hide');
+    el('sel').disabled = false;
+    el('go').disabled = false;
+    el('title').textContent = r.cls;
+    el('when').textContent = r.when;
+    el('sel').innerHTML = '<option value="">（選んでください）</option>' +
+      r.students.map(function (st) {
+        return '<option value="' + esc(st.no) + '">' + esc(st.no + '. ' + st.name) + '</option>';
+      }).join('');
+    if (!r.students.length) {
+      el('err').innerHTML = '<div class="msg err">' + esc(r.cls) +
+        ' の名簿が空です。「予約表_' + esc(r.cls) + '」のA・B列をご確認ください。</div>';
+      el('sel').disabled = true;
+      el('go').disabled = true;
+    }
+  }).dialogAssignInfo(SLOT_ID);
+
+  function submit() {
+    var v = el('sel').value;
+    el('err').innerHTML = '';
+    if (!v) {
+      el('err').innerHTML = '<div class="msg err">生徒が選ばれていません。</div>';
+      return;
+    }
+    el('go').disabled = true;
+    el('go').textContent = '登録しています…';
+    el('err').innerHTML = '<p class="hint">登録して、表も作り直しています。十数秒かかることがあります。</p>';
+
+    google.script.run.withFailureHandler(function (e) {
+      el('go').disabled = false;
+      el('go').textContent = 'この生徒を入れる';
+      el('err').innerHTML = '<div class="msg err">' +
+        esc((e && e.message) || '通信に失敗しました。') + '</div>';
+    }).withSuccessHandler(function (r) {
+      if (!r || !r.ok) {
+        el('go').disabled = false;
+        el('go').textContent = 'この生徒を入れる';
+        el('err').innerHTML = '<div class="msg err">' + esc((r && r.error) || '登録できませんでした。') + '</div>';
+        return;
+      }
+      el('form').classList.add('hide');
+      el('result').classList.remove('hide');
+      el('result').innerHTML =
+        '<div class="msg ok">' + esc(r.no + '. ' + r.name) + ' さんを登録しました。</div>' +
+        '<div class="code">' + esc(r.code) + '</div>' +
+        '<p class="when">この予約コードは変更・取消に必要です。保護者にお伝えください。</p>' +
+        '<div class="btns"><button class="go" onclick="google.script.host.close()">閉じる</button></div>';
+    }).dialogAssign(SLOT_ID, v);
+  }
+</script>

@@ -32,7 +32,19 @@
     h1 { font-size: 1.4rem; margin: 0 0 4px; text-align: center; }
     .notice { font-size: .88rem; color: var(--subtext); margin: 0 0 16px; text-align: center; white-space: pre-wrap; }
 
-    .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+    .tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+    .kidbox { border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; margin-bottom: 12px; background: #fbfcfe; }
+    .kidbox h3 { margin: 0 0 8px; font-size: .95rem; color: var(--primary); }
+    .kidrow { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .kidrow.full { grid-template-columns: 1fr; }
+    .combo { width: 100%; text-align: left; border: 1px solid var(--border); background: #fff;
+             border-radius: 8px; padding: 12px 14px; margin-bottom: 10px; cursor: pointer; font-size: .95rem; }
+    .combo:hover { border-color: var(--primary); background: #f5f9ff; }
+    .combo .time { font-weight: 700; font-size: 1.02rem; color: var(--primary); }
+    .combo .who { display: block; color: var(--subtext); font-size: .86rem; margin-top: 6px; line-height: 1.7; }
+    .dayblock { margin-bottom: 18px; }
+    .dayblock > h3 { margin: 0 0 8px; font-size: 1rem; }
+    .nofit { color: var(--subtext); font-size: .9rem; padding: 8px 0 4px; }
     .tab { flex: 1; padding: 10px; text-align: center; background: #fff; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; font-weight: 500; font-size: .95rem; color: var(--subtext); }
     .tab.on { background: var(--primary); color: #fff; border-color: var(--primary); }
 
@@ -48,6 +60,8 @@
     button.primary:hover { background: var(--primary-hover); }
     button.primary:disabled { background: #a0c3ff; cursor: not-allowed; }
     button.ghost { width: 100%; padding: 10px; background: transparent; color: var(--subtext); border: 1px solid var(--border); border-radius: 8px; font-size: .92rem; cursor: pointer; margin-top: 8px; }
+    .keep { margin-top: 14px; padding: 12px 14px; background: #fef7e0; border: 1px solid #f9e3a2;
+             border-radius: 8px; font-size: .92rem; line-height: 1.7; }
     button.cal-btn { width: 100%; padding: 11px; background: #ffffff; color: #1a73e8; border: 2px solid #1a73e8; border-radius: 8px; font-size: .98rem; font-weight: 600; cursor: pointer; margin-top: 12px; display: flex; align-items: center; justify-content: center; gap: 6px; }
     button.cal-btn:hover { background: #e8f0fe; }
 
@@ -80,6 +94,7 @@
 
   <div class="tabs">
     <div class="tab on" id="tabBook" onclick="showTab('book')">予約する</div>
+    <div class="tab" id="tabSib" onclick="showTab('sib')">きょうだいまとめて</div>
     <div class="tab" id="tabManage" onclick="showTab('manage')">確認・変更・取消</div>
   </div>
 
@@ -123,6 +138,8 @@
       <h2>予約が完了しました</h2>
       <dl class="kv" id="doneKv"></dl>
       <p style="margin:16px 0 0;font-size:.92rem;">変更・取消に必要な<strong>予約コード</strong>です。必ず控えてください。</p>
+      <div class="keep">📷 <strong>この画面のスクリーンショットを撮っておくと確実です。</strong><br>
+      予約コードが分からなくなった場合は、担任までご連絡ください。</div>
       <div class="code" id="doneCode"></div>
       <button class="cal-btn" id="btnAddToCalendar" onclick="addToGoogleCalendar()">📅 Googleカレンダーに登録する</button>
       <button class="ghost" onclick="window.print()">この画面を印刷する</button>
@@ -130,6 +147,44 @@
   </div>
 
   <!-- ========== 確認・変更・取消 ========== -->
+  <div id="paneSib" class="hide">
+    <div class="card" id="sibStart">
+      <h2>きょうだいまとめて予約</h2>
+      <div id="sibMsg"></div>
+      <p class="help-text">同じ日の続いた時間になるよう、空いている組み合わせをお出しします。
+      お子さまが1人の場合は「予約する」タブをお使いください。</p>
+      <label for="sibCount">お子さまの人数</label>
+      <select id="sibCount" onchange="renderKidForms()"></select>
+      <div id="kidForms"></div>
+      <button class="primary" id="btnSibFind" onclick="sibFind()">空いている組み合わせを見る</button>
+    </div>
+
+    <div class="card hide" id="sibPick">
+      <h2>時間の組み合わせを選ぶ</h2>
+      <div id="sibPickInfo"></div>
+      <div id="sibOptions"></div>
+      <button class="ghost" onclick="sibBack()">入力しなおす</button>
+    </div>
+
+    <div class="card hide" id="sibConfirm">
+      <h2>確認して予約</h2>
+      <div id="sibConfirmErr"></div>
+      <dl class="kv" id="sibConfirmKv"></dl>
+      <label for="sibGuardian">保護者氏名</label>
+      <input id="sibGuardian" type="text" placeholder="例: 佐藤 花子">
+      <label for="sibNote">連絡事項（任意）</label>
+      <textarea id="sibNote" placeholder="相談したい内容などがあればご記入ください"></textarea>
+      <button class="primary" id="btnSibBook" onclick="sibBook()">この組み合わせで予約する</button>
+      <button class="ghost" onclick="sibBackToPick()">時間を選びなおす</button>
+    </div>
+
+    <div class="card hide" id="sibDone">
+      <h2>予約が完了しました</h2>
+      <div id="sibDoneBody"></div>
+    </div>
+
+  </div>
+
   <div id="paneManage" class="hide">
     <div class="card" id="mStepId">
       <h2>予約の確認・変更・取消</h2>
@@ -169,6 +224,7 @@
   var student = null;
   var selectedSlotId = null;
   var lastBookingData = null;
+  var lastSibBookings = [];
 
   function call(fn, arg) {
     return new Promise(function (resolve, reject) {
@@ -238,9 +294,263 @@
 
   function showTab(which) {
     el('tabBook').classList.toggle('on', which === 'book');
+    el('tabSib').classList.toggle('on', which === 'sib');
     el('tabManage').classList.toggle('on', which === 'manage');
     show('paneBook', which === 'book');
+    show('paneSib', which === 'sib');
     show('paneManage', which === 'manage');
+    if (which === 'sib') sibInit();
+  }
+
+  /* ---------- きょうだいまとめて ---------- */
+
+  var sibInfo = null;      // 学年とクラスの一覧
+  var sibChildren = null;  // 照合できたお子さん
+  var sibPickChoice = null;
+  var sibAlready = [];     // すでに予約が入っていたお子さん
+
+  function sibInit() {
+    if (sibInfo) return;
+    call('apiSiblingInit').then(function (r) {
+      sibInfo = r;
+      var sel = el('sibCount');
+      var html = '';
+      for (var n = 2; n <= r.maxChildren; n++) {
+        html += '<option value="' + n + '">' + n + '人</option>';
+      }
+      sel.innerHTML = html;
+      if (!r.open) msg('sibMsg', r.message, 'warn');
+      renderKidForms();
+    }).catch(function (e) { msg('sibMsg', e.message); });
+  }
+
+  /** 人数に合わせて入力欄を出す */
+  function renderKidForms() {
+    if (!sibInfo) return;
+    var n = Number(el('sibCount').value || 2);
+    var html = '';
+
+    for (var i = 0; i < n; i++) {
+      html += '<div class="kidbox"><h3>' + (i + 1) + '人目</h3>' +
+        '<div class="kidrow">' +
+        '<div><label for="sibGrade' + i + '">学年</label>' +
+        '<select id="sibGrade' + i + '" onchange="onSibGrade(' + i + ')">' +
+        '<option value="">選んでください</option>' +
+        sibInfo.grades.map(function (g) {
+          return '<option value="' + esc(g.grade) + '">' + esc(g.grade) + '</option>';
+        }).join('') + '</select></div>' +
+        '<div><label for="sibCls' + i + '">クラス</label>' +
+        '<select id="sibCls' + i + '"><option value="">先に学年を選んでください</option></select></div>' +
+        '</div>' +
+        '<div class="kidrow">' +
+        '<div><label for="sibNo' + i + '">出席番号</label>' +
+        '<input id="sibNo' + i + '" type="number" inputmode="numeric" min="1" placeholder="例: 12"></div>' +
+        '<div><label for="sibName' + i + '">お子さまの氏名</label>' +
+        '<input id="sibName' + i + '" type="text" placeholder="例: 佐藤 勝利"' +
+        (sibInfo.checkName ? '' : ' ') + '></div>' +
+        '</div></div>';
+    }
+    el('kidForms').innerHTML = html;
+  }
+
+  /** 学年を選ぶと、その学年のクラスだけ出す */
+  function onSibGrade(i) {
+    var g = el('sibGrade' + i).value;
+    var sel = el('sibCls' + i);
+    if (!g) { sel.innerHTML = '<option value="">先に学年を選んでください</option>'; return; }
+
+    var found = null;
+    for (var k = 0; k < sibInfo.grades.length; k++) {
+      if (sibInfo.grades[k].grade === g) found = sibInfo.grades[k];
+    }
+    if (!found) { sel.innerHTML = '<option value="">クラスがありません</option>'; return; }
+
+    sel.innerHTML = '<option value="">選んでください</option>' +
+      found.classes.map(function (c) {
+        return '<option value="' + esc(c) + '">' + esc(c) + '</option>';
+      }).join('');
+    if (found.classes.length === 1) sel.value = found.classes[0];
+  }
+
+  function collectKids() {
+    var n = Number(el('sibCount').value || 2);
+    var out = [];
+    for (var i = 0; i < n; i++) {
+      out.push({
+        cls: el('sibCls' + i).value,
+        no: el('sibNo' + i).value,
+        name: el('sibName' + i).value
+      });
+    }
+    return out;
+  }
+
+  function sibFind() {
+    msg('sibMsg', '');
+    busy('btnSibFind', true, null, 'sibMsg');
+
+    call('apiSiblingSlots', { children: collectKids() }).then(function (r) {
+      busy('btnSibFind', false, '空いている組み合わせを見る');
+      sibChildren = r.children;
+
+      if (r.already && r.already.length) {
+        sibAlready = r.already;
+        el('sibMsg').innerHTML = '<div class="msg warn"><strong>【すでにご予約済みのお子さまがいます】</strong><br>' +
+          r.already.map(function (a) {
+            return esc(a.name) + ' さん … ' + esc(a.cls) + '　' + esc(a.dateLabel) + ' ' + esc(a.start);
+          }).join('<br>') +
+          '<br><br>まとめての予約は、全員がまだ予約していない場合にご利用いただけます。' +
+          'いったん下のボタンから予約を取り消すか、残りのお子さまを「予約する」タブで1人ずつご予約ください。' +
+          r.already.map(function (a, i) {
+            return '<button type="button" class="primary" style="margin-top:12px;padding:10px;font-size:0.95rem;" ' +
+              'onclick="goToManageFromSib(' + i + ')">' +
+              esc(a.name) + ' さんの予約を確認・変更・取消する ➔</button>';
+          }).join('') +
+          '</div>';
+        window.scrollTo(0, 0);
+        return;
+      }
+
+      renderSibOptions(r.days);
+      show('sibStart', false); show('sibPick', true);
+      show('sibConfirm', false); show('sibDone', false);
+      window.scrollTo(0, 0);
+    }).catch(function (e) {
+      busy('btnSibFind', false, '空いている組み合わせを見る');
+      msg('sibMsg', e.message);
+      window.scrollTo(0, 0);
+    });
+  }
+
+  /** きょうだいタブの案内から、そのお子さんの手続き画面へ移る */
+  function goToManageFromSib(i) {
+    var a = sibAlready[i];
+    if (!a) return;
+    // 手続きは「予約が入っているクラス」で行う。
+    // 交流学級で取っている場合、そのクラスの出席番号は別なので入れない。
+    el('mCls').value = a.cls;
+    if (a.cls === a.ownCls) el('mNo').value = a.no;
+    el('mName').value = a.name;
+    showTab('manage');
+    el('mCode').focus();
+    window.scrollTo(0, 0);
+  }
+
+  function renderSibOptions(days) {
+    var n = sibChildren.length;
+    msg('sibPickInfo', sibChildren.map(function (c) {
+      return c.cls + ' ' + c.no + '番 ' + c.name + 'さん';
+    }).join('\n') + '\n続けて面談できる組み合わせを出しています。ご都合のよいものをお選びください。', 'ok');
+
+    var html = '';
+    var any = false;
+
+    days.forEach(function (d) {
+      html += '<div class="dayblock"><h3>' + esc(d.dateLabel) + '</h3>';
+      if (d.options.length) {
+        any = true;
+        d.options.forEach(function (o, oi) {
+          html += '<button type="button" class="combo" onclick="sibChoose(\'' +
+            esc(d.key) + '\',' + oi + ')">' +
+            '<span class="time">' + esc(o.startTime) + ' 〜 ' + esc(o.endTime) + '</span>' +
+            '（' + n + '人つづけて）' +
+            '<span class="who">' +
+            o.picks.map(function (pk) {
+              return esc(pk.start) + '　' + esc(pk.name) + '（' + esc(pk.cls) +
+                (pk.teacher ? '・' + esc(pk.teacher) : '') + '）';
+            }).join('<br>') +
+            '</span></button>';
+        });
+      } else {
+        html += '<div class="nofit">この日は ' + n + '人つづけての時間が取れません' +
+          (d.maxFit ? '（' + d.maxFit + '人までなら空いています）' : '') + '。</div>';
+      }
+      html += '</div>';
+    });
+
+    if (!any) {
+      html = '<div class="msg warn">申し訳ありません。' + n +
+        '人が同じ日に続けて入れる時間が見つかりませんでした。<br><br>' +
+        'お手数ですが「予約する」タブから1人ずつお選びいただくか、担任までご相談ください。</div>' + html;
+    }
+
+    el('sibOptions').innerHTML = html;
+    window.__sibDays = days;
+  }
+
+  function sibChoose(dayKey, index) {
+    var day = null;
+    (window.__sibDays || []).forEach(function (d) { if (d.key === dayKey) day = d; });
+    if (!day) return;
+    sibPickChoice = { dateLabel: day.dateLabel, option: day.options[index] };
+
+    el('sibConfirmKv').innerHTML =
+      '<dt>面談日</dt><dd><strong>' + esc(sibPickChoice.dateLabel) + '</strong></dd>' +
+      sibPickChoice.option.picks.map(function (pk) {
+        return '<dt>' + esc(pk.start) + '〜' + esc(pk.end) + '</dt><dd>' +
+          esc(pk.name) + '（' + esc(pk.cls) + (pk.teacher ? '・担任 ' + esc(pk.teacher) : '') + '）</dd>';
+      }).join('');
+
+    msg('sibConfirmErr', '');
+    show('sibPick', false); show('sibConfirm', true);
+    window.scrollTo(0, 0);
+  }
+
+  function sibBook() {
+    if (!sibPickChoice) return;
+    msg('sibConfirmErr', '');
+    busy('btnSibBook', true, null, 'sibConfirmErr');
+
+    call('apiSiblingBook', {
+      children: collectKids(),
+      slotIds: sibPickChoice.option.picks.map(function (pk) { return pk.slotId; }),
+      guardian: el('sibGuardian').value,
+      note: el('sibNote').value
+    }).then(function (r) {
+      busy('btnSibBook', false, 'この組み合わせで予約する');
+      lastSibBookings = r.bookings.map(function (b) {
+        return {
+          cls: b.cls, no: b.no, name: b.name, ymd: b.ymd,
+          dateLabel: b.dateLabel, start: b.start, end: b.end,
+          teacher: b.teacher, code: r.code
+        };
+      });
+      el('sibDoneBody').innerHTML =
+        '<div class="msg ok">' + r.bookings.length + '人分のご予約をお受けしました。</div>' +
+        '<dl class="kv">' + r.bookings.map(function (b) {
+          return '<dt>' + esc(b.dateLabel) + ' ' + esc(b.start) + '〜' + esc(b.end) + '</dt><dd>' +
+            esc(b.name) + '（' + esc(b.cls) + (b.teacher ? '・担任 ' + esc(b.teacher) : '') + '）</dd>';
+        }).join('') + '</dl>' +
+        '<div class="code">' + esc(r.code) + '</div>' +
+        '<p style="margin:16px 0 0;font-size:.92rem;">' +
+        '変更・取消に必要な<strong>予約コード</strong>です。ご家族全員でこの1つのコードをお使いいただけます。' +
+        '必ず控えてください。</p>' +
+        '<div class="keep">📷 <strong>この画面のスクリーンショットを撮っておくと確実です。</strong><br>' +
+        '予約コードが分からなくなった場合は、担任までご連絡ください。</div>' +
+        r.bookings.map(function (b, i) {
+          return '<button class="cal-btn" onclick="addSibToCalendar(' + i + ')">' +
+            '📅 ' + esc(b.name) + ' さんをGoogleカレンダーに登録する</button>';
+        }).join('') +
+        '<button class="ghost" onclick="window.print()">この画面を印刷する</button>';
+      show('sibConfirm', false); show('sibDone', true);
+      window.scrollTo(0, 0);
+    }).catch(function (e) {
+      busy('btnSibBook', false, 'この組み合わせで予約する');
+      msg('sibConfirmErr', e.message);
+      window.scrollTo(0, 0);
+    });
+  }
+
+  function sibBack() {
+    msg('sibMsg', '');
+    show('sibPick', false); show('sibConfirm', false); show('sibDone', false);
+    show('sibStart', true);
+    window.scrollTo(0, 0);
+  }
+
+  function sibBackToPick() {
+    show('sibConfirm', false); show('sibPick', true);
+    window.scrollTo(0, 0);
   }
 
   /* ---------- 予約する ---------- */
@@ -269,9 +579,38 @@
         return;
       }
 
+      // 交流学級のほうで予約済みなら、こちらでは取らせない
+      if (r.linkedBooking) {
+        el('idErr').innerHTML = '<div class="msg warn">' +
+          '<strong>【すでにご予約済みです】</strong><br>' +
+          esc(r.student.name) + ' さんは、すでに <strong>' + esc(r.linkedBooking.cls) + '</strong>' +
+          (r.linkedBooking.teacher ? '（担任: ' + esc(r.linkedBooking.teacher) + '）' : '') +
+          ' の面談を予約されています。<br><br>' +
+          '📅 <strong>' + esc(r.linkedBooking.dateLabel) + ' ' +
+          esc(r.linkedBooking.start) + '〜' + esc(r.linkedBooking.end) + '</strong><br><br>' +
+          '面談は、どちらか一方の担任と行います。<br>' +
+          '日時の変更や取消は、<strong>' + esc(r.linkedBooking.cls) +
+          '</strong> を選んで「確認・変更・取消」からお手続きください。' +
+          '</div>';
+        show('stepId', true); show('stepSlots', false); show('stepConfirm', false); show('stepDone', false);
+        window.scrollTo(0, 0);
+        return;
+      }
+
       msg('idErr', '');
       msg('slotInfo', r.student.cls + '　' + r.student.no + '番　' + r.student.name + 'さん' +
         (r.teacher ? '（担任: ' + r.teacher + '）' : '') + '\n緑色の時間から1つ選んでください。', 'ok');
+
+      // 交流学級がある場合は、もう一方の担任も選べることを伝える
+      if (r.linked) {
+        el('slotInfo').innerHTML += '<div class="msg warn" style="margin-top:8px">' +
+          esc(r.student.name) + ' さんは <strong>' + esc(r.linked.cls) + '</strong>' +
+          (r.linked.teacher ? '（担任: ' + esc(r.linked.teacher) + '）' : '') +
+          ' でも予約できます。<br>' +
+          'どちらの担任と面談されるかをお選びのうえ、<strong>一方だけ</strong>ご予約ください。' +
+          '（' + esc(r.linked.cls) + ' をご希望の場合は「入力しなおす」からクラスを選び直してください）' +
+          '</div>';
+      }
 
       renderSlots(el('slotList'), r.days, true, 'pickSlot');
       show('stepId', false); show('stepSlots', true); show('stepConfirm', false); show('stepDone', false);
@@ -295,7 +634,7 @@
 
   function renderSlots(container, days, clickable, fnNameStr) {
     if (!days || !days.length) {
-      container.innerHTML = '<div class="msg warn">現在選択できる面談枠が登録されていません。<br>（スプレッドシートのメニュー「三者面談 ▸ ② 枠を再生成」を実行して枠を作成してください）</div>';
+      container.innerHTML = '<div class="msg warn">現在選択できる面談枠が登録されていません。<br>（スプレッドシートのメニュー「三者面談 ▸ 準備・メンテナンス ▸ ② 枠を再生成」を実行して枠を作成してください）</div>';
       return;
     }
     var fnName = typeof fnNameStr === 'string' ? fnNameStr : 'pickSlot';
@@ -309,6 +648,7 @@
 
         if (s.mine) { cls += 'mine'; text += '<br>（予約中）'; }
         else if (s.available) { cls += 'open'; }
+        else if (s.blocked) { cls += 'full'; text += '<br>（面談なし）'; }
         else { cls += 'full'; text += '<br>（受付終了）'; }
 
         var onclickAttr = isClickable ? 'onclick="' + fnName + '(\'' + s.slotId + '\',\'' + esc(d.dateLabel) + '\',\'' + s.start + '\',\'' + s.end + '\')"' : '';
@@ -353,6 +693,7 @@
         cls: b.cls,
         no: student.no,
         name: b.name,
+        ymd: b.ymd,
         dateLabel: b.dateLabel,
         start: b.start,
         end: b.end,
@@ -472,6 +813,13 @@
     openGoogleCalendarUrl_(lastBookingData);
   }
 
+  /** きょうだい分は1人ずつ登録する（カレンダーの登録画面が1件しか受け取れないため） */
+  function addSibToCalendar(i) {
+    var b = lastSibBookings[i];
+    if (!b) return;
+    openGoogleCalendarUrl_(b);
+  }
+
   function addCurrentToCalendar() {
     if (!currentBooking) return;
     openGoogleCalendarUrl_(currentBooking);
@@ -480,12 +828,19 @@
   function openGoogleCalendarUrl_(b) {
     var title = '三者面談（' + b.cls + ' ' + (b.no ? b.no + '番 ' : '') + b.name + '）';
     
-    // 2026年基準の日付解析（例: "10月29日(木)"）
-    var m = String(b.dateLabel).match(/(\d{1,2})月(\d{1,2})日/);
-    if (!m) return;
-    var year = 2026;
-    var month = ('0' + m[1]).slice(-2);
-    var day = ('0' + m[2]).slice(-2);
+    // 日付はサーバが返す ymd（"2026-10-29"）を使う。
+    // 表示名（"10月29日(木)"）には年が入らないので、そこから組み立てると年を取り違える。
+    var year, month, day;
+    if (/^\d{4}-\d{2}-\d{2}/.test(String(b.ymd || ''))) {
+      var p = String(b.ymd).split('-');
+      year = p[0]; month = p[1]; day = p[2].slice(0, 2);
+    } else {
+      var m = String(b.dateLabel).match(/(\d{1,2})月(\d{1,2})日/);
+      if (!m) return;
+      year = String(new Date().getFullYear());
+      month = ('0' + m[1]).slice(-2);
+      day = ('0' + m[2]).slice(-2);
+    }
 
     var sTime = String(b.start).replace(/[:時]/g, '');
     var eTime = String(b.end).replace(/[:時]/g, '');

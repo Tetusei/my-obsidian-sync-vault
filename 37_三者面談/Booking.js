@@ -7,6 +7,20 @@
  */
 
 function doGet(e) {
+  // 案内プリントを作る前の疎通確認用。
+  // HTMLが表示できるだけでなく、Webアプリから設定シートまで読めることを確かめる。
+  if (e && e.parameter && e.parameter.health === '1') {
+    var health;
+    try {
+      var cfg = getConfig();
+      health = { ok: true, version: VERSION, title: cfg.title };
+    } catch (err) {
+      health = { ok: false, version: VERSION, error: String(err && err.message || err) };
+    }
+    return ContentService.createTextOutput(JSON.stringify(health))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
   var page = (e && e.parameter && e.parameter.page) || '';
   var file = page === 'admin' ? 'admin' : 'index';
   var t = HtmlService.createTemplateFromFile(file);
@@ -48,15 +62,20 @@ function apiSlots(p) {
     if (!win.ok) throw new Error(win.message);
     var student = verifyStudent_(p, cfg);
     var slots = readSlotsCached_();
+    var linked = linkedIdentity_(student.cls, student.no);
     var days = {};
     var order = [];
     var existing = null;
+    var linkedBooking = null;
 
     for (var i = 0; i < slots.length; i++) {
       var v = slots[i].v;
       if (String(v[COL.CLASS - 1]) !== student.cls) continue;
       var st = String(v[COL.STATUS - 1]);
-      var mine = st === STATUS.BOOKED && Number(v[COL.NUMBER - 1]) === student.no;
+
+      // 交流学級のほうで予約している場合も拾う（別クラスなので上の絞り込みの外）
+      var mine = (st === STATUS.BOOKED || st === STATUS.RESERVE) &&
+        Number(v[COL.NUMBER - 1]) === student.no;
       if (mine) {
         existing = {
           slotId: String(v[COL.SLOT_ID - 1]),
@@ -65,6 +84,10 @@ function apiSlots(p) {
           end: String(v[COL.END - 1])
         };
       }
+
+      // 予備は担任が手で使う枠。保護者の一覧には出さない（存在に気づかせない）
+      if (st === STATUS.RESERVE) continue;
+
       var key = ymd_(v[COL.DATE - 1]);
       if (!days[key]) {
         days[key] = { dateLabel: dateLabel_(v[COL.DATE - 1]), slots: [] };
@@ -75,14 +98,34 @@ function apiSlots(p) {
         start: String(v[COL.START - 1]),
         end: String(v[COL.END - 1]),
         available: st === STATUS.OPEN,
+        blocked: st === STATUS.BLOCKED,
         mine: mine
       });
+    }
+
+    if (linked) {
+      for (var j = 0; j < slots.length; j++) {
+        var lv = slots[j].v;
+        if (!isTakenSlot_(lv)) continue;
+        if (String(lv[COL.CLASS - 1]) !== linked.cls) continue;
+        if (Number(lv[COL.NUMBER - 1]) !== linked.no) continue;
+        linkedBooking = {
+          cls: linked.cls,
+          teacher: teacherOf_(linked.cls),
+          dateLabel: dateLabel_(lv[COL.DATE - 1]),
+          start: String(lv[COL.START - 1]),
+          end: String(lv[COL.END - 1])
+        };
+        break;
+      }
     }
 
     return {
       student: { cls: student.cls, no: student.no, name: student.name },
       teacher: teacherOf_(student.cls),
       existing: existing,
+      linked: linked ? { cls: linked.cls, teacher: teacherOf_(linked.cls) } : null,
+      linkedBooking: linkedBooking,
       days: order.map(function (k) { return days[k]; })
     };
   });
@@ -97,7 +140,13 @@ function apiBook(p) {
     var slotId = String(p.slotId || '').trim();
     if (!slotId) throw new Error('時間が選ばれていません。');
 
-    return withLock_(function () {
+    // メール送信は数秒かかることがある。ロックの中で送ると、その間ほかの保護者が待たされる。
+    // ロックを離してから送るため、必要な材料だけ持ち出す。
+    // 交流学級の紐づけは参照データなので、ロックを取る前に読んでおく
+    var linked = linkedIdentity_(student.cls, student.no);
+    var pending = null;
+
+    var result = withLock_(function () {
       var sh = sheet_(SH.SLOTS);
       var slots = readSlots_();
       var target = null;
@@ -106,8 +155,9 @@ function apiBook(p) {
       for (var i = 0; i < slots.length; i++) {
         var v = slots[i].v;
         if (String(v[COL.SLOT_ID - 1]) === slotId) target = slots[i];
+        var vst = String(v[COL.STATUS - 1]);
         if (String(v[COL.CLASS - 1]) === student.cls &&
-          String(v[COL.STATUS - 1]) === STATUS.BOOKED &&
+          (vst === STATUS.BOOKED || vst === STATUS.RESERVE) &&
           Number(v[COL.NUMBER - 1]) === student.no) mineCount++;
       }
 
@@ -115,6 +165,16 @@ function apiBook(p) {
       if (String(target.v[COL.CLASS - 1]) !== student.cls) throw new Error('他のクラスの時間は予約できません。');
       if (mineCount >= cfg.maxPerStudent) {
         throw new Error('すでに予約が入っています。時間を変えるときは「確認・変更・取消」から手続きしてください。');
+      }
+
+      // 交流学級のほうで予約済みなら、二重にはできない
+      if (linked) {
+        var already = findExistingBookingFor_(slots, linked.cls, linked.no, null);
+        if (already) {
+          throw new Error('すでに ' + linked.cls + ' の担任と面談を予約されています（' +
+            dateLabel_(already.v[COL.DATE - 1]) + ' ' + already.v[COL.START - 1] + '）。' +
+            '変更するときは「確認・変更・取消」から、' + linked.cls + ' を選んで手続きしてください。');
+        }
       }
       if (String(target.v[COL.STATUS - 1]) !== STATUS.OPEN) {
         throw new Error('申し訳ありません、その時間はちょうど埋まりました。別の時間を選んでください。');
@@ -129,16 +189,14 @@ function apiBook(p) {
         guardian, note, code, new Date()
       ]]);
       clearSlotCache_();
-      rebuildOverview();
-      rebuildClassSheets();
-      logAction_('予約', slotId, student.cls, student.no, student.name, '');
-
-      // 担任へのメール通知
-      sendTeacherNotification_('予約', student, target, guardian, note, code);
+      markViewsStale_();
+      logAction_('予約', slotId, student.cls, student.no, student.name, 'コード ' + code);
+      pending = { slot: target, guardian: guardian, note: note, code: code };
 
       return {
         code: code,
         booking: {
+          ymd: ymd_(target.v[COL.DATE - 1]),
           dateLabel: dateLabel_(target.v[COL.DATE - 1]),
           start: String(target.v[COL.START - 1]),
           end: String(target.v[COL.END - 1]),
@@ -148,6 +206,9 @@ function apiBook(p) {
         }
       };
     });
+
+    notifyTeacherAfterLock_('予約', student, pending);
+    return result;
   });
 }
 
@@ -167,19 +228,23 @@ function apiCancel(p) {
     if (!win.ok) throw new Error(win.message);
     var student = verifyStudent_(p, cfg);
 
-    return withLock_(function () {
-      var found = findBookingByCode_(student, p.code);
-      clearSlotRow_(found.row);
-      clearSlotCache_();
-      rebuildOverview();
-      rebuildClassSheets();
-      logAction_('取消', String(found.v[COL.SLOT_ID - 1]), student.cls, student.no, student.name, '保護者による取消');
+    var pending = null;
 
-      // 担任へのメール通知
-      sendTeacherNotification_('取消', student, found, '', '', p.code);
+    var result = withLock_(function () {
+      var found = findBookingByCode_(student, p.code);
+      clearSlotRow_(found.row, String(found.v[COL.SLOT_ID - 1]));
+      clearSlotCache_();
+      markViewsStale_();
+      // 取り消すと枠マスタの行は空になるので、あとから追えるようコードをログに残す
+      logAction_('取消', String(found.v[COL.SLOT_ID - 1]), student.cls, student.no, student.name,
+        '保護者による取消 / コード ' + String(found.v[COL.CODE - 1] || ''));
+      pending = { slot: found, guardian: '', note: '', code: String(p.code || '') };
 
       return { cancelled: true };
     });
+
+    notifyTeacherAfterLock_('取消', student, pending);
+    return result;
   });
 }
 
@@ -192,7 +257,9 @@ function apiChange(p) {
     var newId = String(p.slotId || '').trim();
     if (!newId) throw new Error('変更先の時間が選ばれていません。');
 
-    return withLock_(function () {
+    var pending = null;
+
+    var result = withLock_(function () {
       var sh = sheet_(SH.SLOTS);
       var slots = readSlots_();
       var old = null, next = null;
@@ -223,22 +290,45 @@ function apiChange(p) {
         guardian, note, code, new Date()
       ]];
       sh.getRange(next.row, COL.STATUS, 1, SLOT_LAST_COL - COL.STATUS + 1).setValues(payload);
-      clearSlotRow_(old.row);
+      clearSlotRow_(old.row, String(old.v[COL.SLOT_ID - 1]));
       clearSlotCache_();
-      rebuildOverview();
-      rebuildClassSheets();
+      markViewsStale_();
       logAction_('変更', newId, student.cls, student.no, student.name,
-        String(old.v[COL.SLOT_ID - 1]) + ' → ' + newId);
+        String(old.v[COL.SLOT_ID - 1]) + ' → ' + newId + ' / コード ' + code);
+      pending = { slot: next, guardian: guardian, note: note, code: code };
 
-      // 担任へのメール通知
-      sendTeacherNotification_('変更', student, next, guardian, note, code);
+      // next.v は書き込む前に読んだ内容なので、予約欄はまだ空のまま。
+      // 引き継いだ保護者氏名と連絡事項が確認画面から消えないよう、書いた内容を反映させる
+      var updated = next.v.slice();
+      updated[COL.STATUS - 1] = STATUS.BOOKED;
+      updated[COL.NUMBER - 1] = student.no;
+      updated[COL.STUDENT - 1] = student.name;
+      updated[COL.GUARDIAN - 1] = guardian;
+      updated[COL.NOTE - 1] = note;
+      updated[COL.CODE - 1] = code;
 
-      return { booking: bookingView_(next.v, student) };
+      return { booking: bookingView_(updated, student) };
     });
+
+    notifyTeacherAfterLock_('変更', student, pending);
+    return result;
   });
 }
 
 /* ---------------- 担任メール通知 ---------------- */
+
+/**
+ * ロックを離してから担任へ通知する。
+ * 通知に失敗しても予約そのものは成立しているので、保護者にはエラーを見せない。
+ */
+function notifyTeacherAfterLock_(action, student, pending) {
+  if (!pending) return;
+  try {
+    sendTeacherNotification_(action, student, pending.slot, pending.guardian, pending.note, pending.code);
+  } catch (e) {
+    console.warn('担任通知をスキップ:', e);
+  }
+}
 
 function sendTeacherNotification_(action, student, targetSlot, guardian, note, code) {
   var cfg = getConfig();
@@ -290,7 +380,8 @@ function safe_(fn) {
 
 function withLock_(fn) {
   var lock = LockService.getScriptLock();
-  if (!lock.tryLock(20000)) {
+  // 受付開始の直後は予約が集中する。順番待ちの余裕を少し長めに取る
+  if (!lock.tryLock(30000)) {
     throw new Error('ただいま混み合っています。少し待ってからもう一度お試しください。');
   }
   try {
@@ -324,12 +415,12 @@ function verifyStudent_(p, cfg) {
     if (roster[i].cls !== cls || roster[i].no !== no) continue;
     foundNo = true;
     if (cfg.checkName && norm_(roster[i].name) !== norm_(name)) {
-      countFailure_(cls + '_' + no);
+      countFailure_(cls + '_' + no, cls, no, '生徒氏名');
       throw new Error('入力情報が名簿と一致しませんでした。お子様に出席番号をご確認の上、もう一度お試しください。解消しない場合は担任までご連絡ください。（※姓と名の間のスペースは無くても構いません）');
     }
     return roster[i];
   }
-  countFailure_(cls + '_' + no);
+  countFailure_(cls + '_' + no, cls, no, foundNo ? '生徒氏名' : '出席番号');
   if (foundNo) {
     throw new Error('入力情報が名簿と一致しませんでした。お子様に出席番号をご確認の上、もう一度お試しください。解消しない場合は担任までご連絡ください。（※姓と名の間のスペースは無くても構いません）');
   }
@@ -350,13 +441,14 @@ function findBookingByCode_(student, code) {
     if (String(v[COL.CODE - 1]) !== c) continue;
     return slots[i];
   }
-  countFailure_('code_' + student.cls + '_' + student.no);
+  countFailure_('code_' + student.cls + '_' + student.no, student.cls, student.no, '予約コード');
   throw new Error('予約が見つかりませんでした。予約コードをご確認ください。分からない場合は担任までご連絡ください。');
 }
 
 function bookingView_(v, student) {
   return {
     slotId: String(v[COL.SLOT_ID - 1]),
+    ymd: ymd_(v[COL.DATE - 1]),
     dateLabel: dateLabel_(v[COL.DATE - 1]),
     start: String(v[COL.START - 1]),
     end: String(v[COL.END - 1]),
@@ -368,9 +460,22 @@ function bookingView_(v, student) {
   };
 }
 
-function clearSlotRow_(row) {
+/**
+ * 予約内容を消して枠を空ける。
+ * その枠が「だめなコマ」に指定されている場合は、空きではなくブロックに戻す
+ * （担任が面談を入れないと決めた枠が、取消をきっかけに再び予約されるのを防ぐ）。
+ */
+function clearSlotRow_(row, slotId) {
+  var status = STATUS.OPEN;
+  if (slotId) {
+    try {
+      if (readNgSet_()[String(slotId)]) status = STATUS.BLOCKED;
+    } catch (e) {
+      console.warn('だめなコマの確認をスキップ:', e);
+    }
+  }
   sheet_(SH.SLOTS).getRange(row, COL.STATUS, 1, SLOT_LAST_COL - COL.STATUS + 1)
-    .setValues([[STATUS.OPEN, '', '', '', '', '', '']]);
+    .setValues([[status, '', '', '', '', '', '']]);
 }
 
 function teacherOf_(cls) {
@@ -386,6 +491,7 @@ function makeCode_() {
 
 var MAX_FAILURES = 8;
 var FAILURE_WINDOW_SEC = 900;
+var FAILURE_NOTICE_AT = 3;   // 何回続いたら学校側に記録するか
 
 function guardBruteForce_(key) {
   var cache = CacheService.getScriptCache();
@@ -395,8 +501,24 @@ function guardBruteForce_(key) {
   }
 }
 
-function countFailure_(key) {
+/**
+ * 入力の誤りを数える。
+ *
+ * 保護者が予約できずにいても、これまで学校側には何も伝わらなかった。
+ * 誤りが続いた時点で予約ログに残し、担任から声をかけられるようにする。
+ */
+function countFailure_(key, cls, no, kind) {
   var cache = CacheService.getScriptCache();
   var n = Number(cache.get('fail_' + key) || 0) + 1;
   cache.put('fail_' + key, String(n), FAILURE_WINDOW_SEC);
+
+  if (n === FAILURE_NOTICE_AT || n === MAX_FAILURES) {
+    try {
+      logAction_('入力エラー', '', cls || '', no || '', '',
+        n + '回続けて名簿と一致しませんでした（' + (kind || '') + '）' +
+        (n >= MAX_FAILURES ? ' ／ 15分間の受付停止中' : ''));
+    } catch (e) {
+      console.warn('入力エラーの記録をスキップ:', e);
+    }
+  }
 }
