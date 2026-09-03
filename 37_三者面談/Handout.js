@@ -166,10 +166,10 @@ function buildHandoutSheet_(sh, cfg, url) {
 
   // ── 見出し
   mergeText_(sh, 2, 2, 1, width - 2, cfg.title, {
-    size: 26, bold: true, align: 'center', height: 50
+    size: 28, bold: true, align: 'center', height: 54
   });
   mergeText_(sh, 3, 2, 1, width - 2, '保護者の皆さまへ', {
-    size: 14, align: 'center', color: '#5f6368', height: 28
+    size: 17, align: 'center', color: '#5f6368', height: 32
   });
 
   sh.getRange(4, 2, 1, width - 2).setBorder(null, null, true, null, null, null,
@@ -178,7 +178,7 @@ function buildHandoutSheet_(sh, cfg, url) {
   // ── 案内文
   var notice = cfg.notice ||
     '希望する日時を1つ選んでご予約ください。予約後に表示される4桁の予約コードは、変更・取消に必要です。必ず控えてください。';
-  mergeText_(sh, 6, 2, 3, width - 2, notice, { size: 14, wrap: true, height: 30 });
+  mergeText_(sh, 6, 2, 3, width - 2, notice, { size: 16, wrap: true, height: 32 });
 
   // ── 受付期間
   var period = [];
@@ -188,10 +188,10 @@ function buildHandoutSheet_(sh, cfg, url) {
     WEEKDAY_JA[cfg.closeAt.getDay()] + ') ' + Utilities.formatDate(cfg.closeAt, TZ, 'HH:mm') + ' まで');
   mergeText_(sh, 10, 2, 1, width - 2,
     period.length ? '受付期間　' + period.join('　〜　') : '受付期間　担任からのお知らせをご確認ください',
-    { size: 15, bold: true, height: 34, bg: '#e8f0fe' });
+    { size: 17, bold: true, height: 38, bg: '#e8f0fe' });
 
   mergeText_(sh, 12, 2, 1, width - 2, '▼ スマートフォンで読み取ってください', {
-    size: 15, bold: true, height: 30
+    size: 17, bold: true, height: 34
   });
 
   // ── QRコード（セルの背景色で描く）
@@ -205,11 +205,11 @@ function buildHandoutSheet_(sh, cfg, url) {
   var side = HANDOUT_QR_ROW + 1;
   mergeText_(sh, side, textCol, line, width - textCol,
     '読み取れない場合は、こちらのアドレスを入力してください',
-    { size: 12, wrap: true, color: '#5f6368' });
+    { size: 15, wrap: true, color: '#5f6368' });
 
   side += line + 1;
-  mergeText_(sh, side, textCol, line * 3, width - textCol, url,
-    { size: 11, wrap: true, bg: '#f1f3f4' });
+  mergeText_(sh, side, textCol, line * 5, width - textCol, url,
+    { size: 14, wrap: true, bg: '#f1f3f4' });
 
   // ── 手順
   var steps = [
@@ -218,14 +218,14 @@ function buildHandoutSheet_(sh, cfg, url) {
     '③ 保護者氏名を入力して予約を確定',
     '④ 表示された4桁の予約コードを控える'
   ];
-  side += line * 3 + 1;
+  side += line * 5 + 1;
   mergeText_(sh, side, textCol, line, width - textCol, 'ご利用の手順',
-    { size: 15, bold: true });
+    { size: 17, bold: true });
 
   side += line + 1;
   for (var s = 0; s < steps.length; s++) {
     mergeText_(sh, side + s * (line + 1), textCol, line, width - textCol, steps[s],
-      { size: 14, wrap: true });
+      { size: 16, wrap: true });
   }
 
   // ── ごきょうだいがいる場合
@@ -236,7 +236,7 @@ function buildHandoutSheet_(sh, cfg, url) {
   var sideEnd = side + (steps.length - 1) * (line + 1) + line;
   var sibRow = Math.max(afterQr + HANDOUT_QR_QUIET + 2, sideEnd + 2);
   mergeText_(sh, sibRow, 2, 1, width - 2,
-    'ごきょうだいが本校にいる場合', { size: 15, bold: true, height: 32 });
+    'ごきょうだいが本校にいる場合', { size: 17, bold: true, height: 36 });
 
   var sibLines = [
     '「きょうだいまとめて」を選ぶと、同じ日の続いた時間で全員分をまとめてご予約いただけます。',
@@ -248,16 +248,22 @@ function buildHandoutSheet_(sh, cfg, url) {
   }
   sibLines.push('予約コードは、ごきょうだい全員で同じものが1つ出ます。');
 
-  mergeText_(sh, sibRow + 2, 2, sibLines.length, width - 2,
-    sibLines.join(LF), { size: 14, wrap: true, height: 30 });
+  // 行を1つの結合セルにまとめず、1文ずつ別のセルにする。
+  // Googleスプレッドシートには行間の設定がないため、これで文と文の間を確保する。
+  var sibBlockRows = 2;
+  for (var sl = 0; sl < sibLines.length; sl++) {
+    mergeText_(sh, sibRow + 2 + sl * sibBlockRows, 2, sibBlockRows, width - 2,
+      sibLines[sl], { size: 15, wrap: true, height: 21 });
+  }
 
   // ── AndroidでGoogleアカウントの切替に引っかかった場合
   // 「シークレットモード」とだけ書いても操作が伝わらないため、
   // 保護者が紙を見ながら進められる順番で案内する。
-  var helpRow = sibRow + sibLines.length + 4;
+  var sibBodyEnd = sibRow + 2 + sibLines.length * sibBlockRows;
+  var helpRow = sibBodyEnd + 2;
   mergeText_(sh, helpRow, 2, 1, width - 2,
     '予約画面が開かない場合', {
-      size: 14, bold: true, height: 30, bg: '#fff4ce'
+      size: 17, bold: true, height: 36, bg: '#fff4ce'
     });
 
   var androidHelpLines = [
@@ -268,9 +274,16 @@ function buildHandoutSheet_(sh, cfg, url) {
     '操作が難しい場合は、別のスマートフォンやタブレットでお試しください。',
     'それでも予約画面が開かない場合は、学校までご連絡ください。'
   ];
-  mergeText_(sh, helpRow + 2, 2, androidHelpLines.length, width - 2,
-    androidHelpLines.join(LF),
-    { size: 11, wrap: true, height: 23, color: '#3c4043' });
+  // 最初の説明は長いため3行分、それ以外は2行分の高さを確保する。
+  var androidHelpRows = [3, 2, 2, 2, 2, 2];
+  var helpCursor = helpRow + 2;
+  for (var ah = 0; ah < androidHelpLines.length; ah++) {
+    var helpRows = androidHelpRows[ah] || 2;
+    mergeText_(sh, helpCursor, 2, helpRows, width - 2,
+      androidHelpLines[ah],
+      { size: 15, wrap: true, height: 18, color: '#3c4043' });
+    helpCursor += helpRows;
+  }
 
   // ── 注意書き
   var notes = [
@@ -279,10 +292,14 @@ function buildHandoutSheet_(sh, cfg, url) {
   ];
   notes.push('※ ごきょうだいが同じクラスの場合や、続いた時間が取れない場合は、お一人ずつご予約ください。');
 
-  var notesRow = helpRow + androidHelpLines.length + 4;
-  mergeText_(sh, notesRow, 2, notes.length, width - 2,
-    notes.join(LF),
-    { size: 11, wrap: true, height: 25, color: '#3c4043' });
+  var helpBodyEnd = helpCursor;
+  var notesRow = helpBodyEnd + 2;
+  var noteBlockRows = 3;
+  for (var nt = 0; nt < notes.length; nt++) {
+    mergeText_(sh, notesRow + nt * noteBlockRows, 2, noteBlockRows, width - 2,
+      notes[nt],
+      { size: 15, wrap: true, height: 16, color: '#3c4043' });
+  }
 
   // ── すき間の行を詰める
   //    何も置いていない行は既定の21pxのままで、合計するとA4を超えてしまう。
@@ -290,9 +307,9 @@ function buildHandoutSheet_(sh, cfg, url) {
   var spacers = [1, 4, 5, 9, 11, 13];
   for (var sp = Math.max(afterQr + HANDOUT_QR_QUIET - 1, sideEnd + 1); sp < sibRow; sp++) spacers.push(sp);
   spacers.push(sibRow + 1);
-  for (var sp2 = sibRow + 2 + sibLines.length; sp2 < helpRow; sp2++) spacers.push(sp2);
+  for (var sp2 = sibBodyEnd; sp2 < helpRow; sp2++) spacers.push(sp2);
   spacers.push(helpRow + 1);
-  for (var sp3 = helpRow + 2 + androidHelpLines.length; sp3 < notesRow; sp3++) spacers.push(sp3);
+  for (var sp3 = helpBodyEnd; sp3 < notesRow; sp3++) spacers.push(sp3);
   for (var sp4 = 0; sp4 < spacers.length; sp4++) {
     try { sh.setRowHeight(spacers[sp4], HANDOUT_SPACER_PX); } catch (e) { /* 無視 */ }
   }
