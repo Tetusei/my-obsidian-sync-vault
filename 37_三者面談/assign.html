@@ -42,6 +42,7 @@
   <p class="hint" id="hint">クラスの人数によっては、一覧が出るまで数秒かかります。そのままお待ちください。</p>
   <div class="btns">
     <button onclick="google.script.host.close()">やめる</button>
+    <button id="clear" class="hide" onclick="submitClear()">この枠を空にする</button>
     <button class="go" id="go" onclick="submit()" disabled>この生徒を入れる</button>
   </div>
 </div>
@@ -73,15 +74,29 @@
       return;
     }
     D = r;
-    el('hint').classList.add('hide');
     el('sel').disabled = false;
     el('go').disabled = false;
-    el('title').textContent = r.cls;
+    el('title').textContent = r.cls + (r.reserve ? '　予備の枠' : '');
     el('when').textContent = r.when;
+    // 予備は保護者に見えない枠。予約コードが出ないことを、押す前に伝えておく
+    if (r.reserve) {
+      el('hint').textContent = '予備の枠です。保護者の予約画面には出ないため、予約コードは発行しません。';
+    } else {
+      el('hint').classList.add('hide');
+    }
     el('sel').innerHTML = '<option value="">（選んでください）</option>' +
       r.students.map(function (st) {
-        return '<option value="' + esc(st.no) + '">' + esc(st.no + '. ' + st.name) + '</option>';
+        return '<option value="' + esc(st.no) + '"' +
+          (String(st.no) === String(r.currentNo || '') ? ' selected' : '') + '>' +
+          esc(st.no + '. ' + st.name) + '</option>';
       }).join('');
+
+    // 予備の行はシートへ直接書けないので、外すのもここから行えるようにする
+    if (r.reserve && r.currentName) {
+      el('clear').classList.remove('hide');
+      el('when').textContent = r.when + '　いま ' +
+        (r.currentNo ? r.currentNo + '. ' : '') + r.currentName + ' さんが入っています';
+    }
     if (!r.students.length) {
       el('err').innerHTML = '<div class="msg err">' + esc(r.cls) +
         ' の名簿が空です。「予約表_' + esc(r.cls) + '」のA・B列をご確認ください。</div>';
@@ -97,29 +112,51 @@
       el('err').innerHTML = '<div class="msg err">生徒が選ばれていません。</div>';
       return;
     }
+    send(v, '登録しています…');
+  }
+
+  function submitClear() {
+    if (!confirm('この枠を空にします。よろしいですか？')) return;
+    el('err').innerHTML = '';
+    send('', '空にしています…');
+  }
+
+  /** value が空文字なら、その枠を空にする */
+  function send(value, doingLabel) {
+    var goLabel = el('go').textContent;
     el('go').disabled = true;
-    el('go').textContent = '登録しています…';
-    el('err').innerHTML = '<p class="hint">登録して、表も作り直しています。十数秒かかることがあります。</p>';
+    el('clear').disabled = true;
+    el('go').textContent = doingLabel;
+    el('err').innerHTML = '<p class="hint">表も作り直しています。十数秒かかることがあります。</p>';
+
+    function back(message) {
+      el('go').disabled = false;
+      el('clear').disabled = false;
+      el('go').textContent = goLabel;
+      el('err').innerHTML = '<div class="msg err">' + esc(message) + '</div>';
+    }
 
     google.script.run.withFailureHandler(function (e) {
-      el('go').disabled = false;
-      el('go').textContent = 'この生徒を入れる';
-      el('err').innerHTML = '<div class="msg err">' +
-        esc((e && e.message) || '通信に失敗しました。') + '</div>';
+      back((e && e.message) || '通信に失敗しました。');
     }).withSuccessHandler(function (r) {
       if (!r || !r.ok) {
-        el('go').disabled = false;
-        el('go').textContent = 'この生徒を入れる';
-        el('err').innerHTML = '<div class="msg err">' + esc((r && r.error) || '登録できませんでした。') + '</div>';
+        back((r && r.error) || '登録できませんでした。');
         return;
       }
       el('form').classList.add('hide');
       el('result').classList.remove('hide');
       el('result').innerHTML =
-        '<div class="msg ok">' + esc(r.no + '. ' + r.name) + ' さんを登録しました。</div>' +
-        '<div class="code">' + esc(r.code) + '</div>' +
-        '<p class="when">この予約コードは変更・取消に必要です。保護者にお伝えください。</p>' +
+        '<div class="msg ok">' +
+        (r.name
+          ? esc(r.no + '. ' + r.name) + ' さんを' + (r.reserve ? '予備の枠に入れました。' : '登録しました。')
+          : 'この予備の枠を空にしました。') + '</div>' +
+        (r.reserve
+          ? '<p class="hint">予備の枠なので、予約コードはありません。' +
+            '入れ直すときや外すときも、同じ「この枠に生徒を入れる」から操作してください。' +
+            '表に直接書いても登録されません。</p>'
+          : '<div class="code">' + esc(r.code) + '</div>' +
+            '<p class="when">この予約コードは変更・取消に必要です。保護者にお伝えください。</p>') +
         '<div class="btns"><button class="go" onclick="google.script.host.close()">閉じる</button></div>';
-    }).dialogAssign(SLOT_ID, v);
+    }).dialogAssign(SLOT_ID, value);
   }
 </script>

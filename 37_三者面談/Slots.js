@@ -229,6 +229,7 @@ function gradeHeaderColor_(grade, gradeList) {
  * 3行目〜: 行 = 日付×時間、列 = クラス。空きが一目で分かる。
  */
 function rebuildOverview() {
+  var ss = ss_();
   var cfg = getConfig();
   var classes = getClasses().slice().sort(function (a, b) {
     var d = gradeOrder_(a.grade) - gradeOrder_(b.grade);
@@ -303,9 +304,14 @@ function rebuildOverview() {
   var byId = {};
   for (var i = 0; i < slots.length; i++) byId[slots[i].v[COL.SLOT_ID - 1]] = slots[i].v;
 
+  // クラスの見出しは、そのクラスの予約表へのリンクにする。
+  // 17クラス並ぶと、下のタブから目的の予約表を探すだけで手間がかかる。
+  // まだ予約表が無いクラスは、そのまま文字だけにしておく。
   var header = ['日付', '時間'].concat(classes.map(function (c) {
-    return (c.grade && gradeList.length > 1 ? c.grade + '\n' : '') +
+    var label = (c.grade && gradeList.length > 1 ? c.grade + '\n' : '') +
       c.name + (c.teacher ? '\n' + c.teacher : '');
+    var target = ss.getSheetByName(CLASS_SHEET_PREFIX + c.name);
+    return target ? sheetLinkFormula_(target.getSheetId(), label) : label;
   })).concat(['空き数']);
 
   // 各クラスの本文に敷く学年の帯（学年が1つだけなら敷かない）
@@ -361,7 +367,7 @@ function rebuildOverview() {
     }
   }
 
-  var sh = ss_().getSheetByName(SH.OVERVIEW) || ss_().insertSheet(SH.OVERVIEW);
+  var sh = ss.getSheetByName(SH.OVERVIEW) || ss.insertSheet(SH.OVERVIEW);
   ensureSheetSize_(sh, body.length + 3, header.length);
   
   // ★ 固定列・固定行を一旦リセットしてからクリア（結合エラー防止）
@@ -450,6 +456,13 @@ function rebuildOverview() {
   sh.setFrozenRows(2);
   sh.setFrozenColumns(2);
 
+  // この表は clear() で丸ごと作り直す。残る場所が1つも無いので、シートごと守る
+  ensureEditGuards_(sh, [{
+    key: SH.OVERVIEW,
+    note: 'この表は「' + SH.SLOTS + '」から自動で作り直されます。ここに書いた内容は次の更新で消えます。' +
+      '面談を入れない時間の指定は「' + SH.NG + '」シートか、担任用の管理画面で行ってください。'
+  }]);
+
   // だめなコマシート側の警告表示も最新にする（予約が取り消されれば自動で消える）
   try {
     markNgConflicts_(ngConflicts);
@@ -469,13 +482,10 @@ function rebuildClassSheets() {
   var ss = ss_();
   var classes = getClasses();
 
-  // 予約表は毎回作り直すので、担任が予備の行に書いた内容は先に拾って枠マスタへ移す。
-  // これをしないと、書いた内容が次の更新で消える。
-  try {
-    captureReserveEntries_();
-  } catch (e) {
-    console.warn('予備コマの取り込みをスキップ:', e);
-  }
+  // 予備の行を含め、この表への手入力は取り込まない。
+  // 取り込むと、予約の重複確認や名簿との照合を通さずに面談が入ってしまう。
+  // 「作り直される所には書けない」を例外なしにしたほうが、担任にとっても分かりやすい。
+  // 書かれたことには onEdit（Admin.js）が気づき、予約ログに残す。
 
   var slots = readSlots_();
   var ngSet = {};
@@ -491,6 +501,9 @@ function rebuildClassSheets() {
   var headerLeft = CLASS_HEADER_LEFT;
   var headerRight = CLASS_HEADER_RIGHT;
   var rightWidth = headerRight.length + 1;   // 末尾に枠IDの列を足す
+
+  // 全体ビューへ戻るリンクを置くため、先に1回だけ探しておく
+  var overviewSh = ss.getSheetByName(SH.OVERVIEW);
 
   for (var c = 0; c < classes.length; c++) {
     var clsName = classes[c].name;
@@ -582,7 +595,11 @@ function rebuildClassSheets() {
           rv[COL.GUARDIAN - 1] || '',
           rv[COL.NOTE - 1] || '担任が予備の枠に入れました'
         ]);
-        colorsLeft.push(['#ffffff', '#ffffff', '#fef7e0', '#ffffff', '#ffffff', '#ffffff']);
+        // 予備でも面談は入っている。C列を縦に見たときに
+        // 「緑＝入っている／琥珀＝入っていない」で読めるよう、緑系にする。
+        // 琥珀(#fef7e0)のままだと、未予約の行と同じ色で見分けが付かなかった。
+        // 通常の予約(#e6f4ea)より一段濃くして、予備であることは色でも分かるようにする
+        colorsLeft.push(['#ffffff', '#ffffff', '#ceead6', '#ffffff', '#ffffff', '#ffffff']);
       } else {
         bodyLeft.push([
           st.no,
@@ -681,6 +698,18 @@ function rebuildClassSheets() {
     }
     clearSheetTail_(sh, 9, rightWidth, 2 + bodyRight.length, oldLast);
 
+    // 左右の表のあいだ（G1）に、全体ビューへ戻るリンクを置く。
+    // ここは表の外なので、作り直しても消えないし、表の幅にも影響しない
+    if (overviewSh) {
+      sh.getRange(1, 7)
+        .setFormula(sheetLinkFormula_(overviewSh.getSheetId(), '◀ 全体ビュー'))
+        .setFontWeight('bold')
+        .setHorizontalAlignment('center')
+        .setVerticalAlignment('middle')
+        .setBackground('#e8f0fe');
+      sh.setColumnWidth(7, 110);
+    }
+
     sh.setFrozenRows(1);
     sh.setColumnWidth(1, 70);
     sh.setColumnWidth(2, 120);
@@ -699,91 +728,30 @@ function rebuildClassSheets() {
     sh.setColumnWidth(14, 120);
     sh.setColumnWidth(15, 100);
     try { sh.hideColumns(9 + headerRight.length); } catch (e) { /* 既に非表示 */ }
+
+    // 作り直される場所には、まとめて書き込む前の警告を掛ける。
+    // 手で入れてよいのは名簿（A・B列）だけ、と一言で言えるようにする。
+    var guardRows = Math.max(sh.getMaxRows() - 1, 1);
+    var enterHere = '面談を入れるときは、その行を選んでメニュー「' + MENU.ROOT + ' ▸ ' +
+      MENU.ROWOPS + ' ▸ この枠に生徒を入れる」か、担任用の管理画面から行ってください。';
+    ensureEditGuards_(sh, [
+      {
+        key: '生徒別予約状況',
+        range: sh.getRange(2, 3, guardRows, 4),
+        note: 'ここは「' + SH.SLOTS + '」から自動で作り直されます。書いた内容は次の更新で消えます。' +
+          'このシートで手入力するのは、A・B列の名簿だけです。' + enterHere
+      },
+      {
+        key: '時間枠別予約表',
+        range: sh.getRange(2, 9, guardRows, 8),
+        note: 'ここは「' + SH.SLOTS + '」から自動で作り直されます。書いた内容は次の更新で消えます。' +
+          '黄色い（予備）の行も同じで、直接書いても登録されません。' + enterHere
+      }
+    ]);
   }
 
   // A・B列を書き直したので、名簿の読み取り結果を作り直させる
   clearRosterCache_();
-}
-
-/** キャッシュされた空き枠を読む */
-/**
- * 「予約表_〇組」の予備の行に担任が書き込んだ内容を、枠マスタへ取り込む。
- *
- * 予約表は毎回作り直される表示用のシートなので、ここで拾わないと
- * 書いた内容は次の更新で消えてしまう。名簿（A・B列）と同じ扱いにしている。
- * 拾うのは予備の行だけ。通常の枠に手で書いても取り込まない
- * （予約の重複確認を通さずに面談が入ってしまうため）。
- *
- * @return {number} 取り込んだ行数
- */
-function captureReserveEntries_() {
-  var ss = ss_();
-  var slotSh = ss.getSheetByName(SH.SLOTS);
-  if (!slotSh) return 0;
-
-  var slots = readSlots_();
-  var byId = {};
-  var hasReserve = false;
-  for (var i = 0; i < slots.length; i++) {
-    var sv = slots[i].v;
-    byId[String(sv[COL.SLOT_ID - 1])] = slots[i];
-    if (String(sv[COL.STATUS - 1]) === STATUS.RESERVE) hasReserve = true;
-  }
-  if (!hasReserve) return 0;   // 予備を使っていない学校では何もしない
-
-  var roster = getRoster();
-  var byName = {}, byNo = {};
-  for (var r = 0; r < roster.length; r++) {
-    byName[roster[r].cls + '|' + norm_(roster[r].name)] = roster[r];
-    byNo[roster[r].cls + '|' + roster[r].no] = roster[r];
-  }
-
-  var classes = getClasses();
-  var width = CLASS_HEADER_RIGHT.length + 1;   // 末尾が枠IDの列
-  var changed = 0;
-
-  for (var c = 0; c < classes.length; c++) {
-    var sh = ss.getSheetByName(CLASS_SHEET_PREFIX + classes[c].name);
-    if (!sh) continue;
-    var last = sh.getLastRow();
-    if (last < 2) continue;
-
-    var vals = sh.getRange(2, 9, last - 1, width).getValues();
-    for (var v = 0; v < vals.length; v++) {
-      var id = String(vals[v][width - 1] || '').trim();
-      if (!id) continue;
-
-      var target = byId[id];
-      if (!target) continue;
-      if (String(target.v[COL.STATUS - 1]) !== STATUS.RESERVE) continue;
-
-      var typedNo = Number(vals[v][3]) || 0;             // 出席番号
-      var typedName = String(vals[v][4] || '').trim();   // 生徒氏名
-      var typedGuardian = String(vals[v][5] || '').trim();
-
-      // 番号だけ、氏名だけでも通るよう、名簿と突き合わせて足りないほうを補う
-      var hit = null;
-      if (typedName) hit = byName[classes[c].name + '|' + norm_(typedName)];
-      if (!hit && typedNo) hit = byNo[classes[c].name + '|' + typedNo];
-      if (hit) { typedNo = hit.no; typedName = hit.name; }
-
-      var curNo = Number(target.v[COL.NUMBER - 1]) || 0;
-      var curName = String(target.v[COL.STUDENT - 1] || '');
-      var curGuardian = String(target.v[COL.GUARDIAN - 1] || '');
-      if (typedNo === curNo && typedName === curName && typedGuardian === curGuardian) continue;
-
-      slotSh.getRange(target.row, COL.NUMBER, 1, 3)
-        .setValues([[typedNo || '', typedName, typedGuardian]]);
-      changed++;
-
-      logAction_(typedName ? '予備コマに記入' : '予備コマを空に',
-        id, classes[c].name, typedNo || '', typedName,
-        typedName ? '担任が予約表に記入' : '担任が予約表から消去');
-    }
-  }
-
-  if (changed) clearSlotCache_();
-  return changed;
 }
 
 /**
@@ -798,6 +766,7 @@ function clearSheetTail_(sh, col, width, fromRow, oldLast) {
   rng.setBorder(false, false, false, false, false, false);
 }
 
+/** キャッシュされた空き枠を読む */
 function readSlotsCached_() {
   var cache = CacheService.getScriptCache();
   var hit = cache.get('all_slots_v1');

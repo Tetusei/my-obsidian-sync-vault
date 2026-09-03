@@ -440,7 +440,7 @@ function menuRefreshViews() {
     // あとから増えた設定は、初期セットアップを実行しないと行ができない。
     // よく押される項目なので、ここで用意しておく
     ensureConfigKey_(RESERVE_COUNT_KEY,
-      '保護者には見せない予備の枠。最終コマの後ろに作られ、担任が「予約表_〇組」に氏名を書いて使う。0で無し', 0);
+      '保護者には見せない予備の枠。最終コマの後ろに作られ、担任が管理画面か「この枠に生徒を入れる」で埋める。0で無し', 0);
     if (syncAllAutoFlags_()) buildMenu_();
   } catch (e) {
     console.warn('自動処理の状態の同期をスキップ:', e);
@@ -816,15 +816,29 @@ function dialogAssignInfo(slotId) {
       cls: cls,
       when: dateLabel_(slot.v[COL.DATE - 1]) + ' ' +
         slot.v[COL.START - 1] + '–' + slot.v[COL.END - 1],
+      // 予備は保護者に見えない枠なので、予約コードを出さない。小窓の文面もそれに合わせる
+      reserve: String(slot.v[COL.STATUS - 1]) === STATUS.RESERVE,
+      // 予備の行はシートへ直接書けないので、入れ直し・取り消しもこの小窓で行う
+      currentNo: slot.v[COL.NUMBER - 1] || '',
+      currentName: String(slot.v[COL.STUDENT - 1] || ''),
       students: students
     };
   });
 }
 
-/** 小窓からの登録。終わったら表も作り直す */
+/**
+ * 小窓からの登録。終わったら表も作り直す。
+ *
+ * 予備の枠は「予約」ではなく、担任が使う枠への記入として扱う。
+ * Web管理画面が黄色いセルを押したときと同じ結果になる。
+ */
 function dialogAssign(slotId, text) {
   return safe_(function () {
-    var done = assignStudentToSlot_(slotId, text);
+    var reserve = String(findSlotRow_(slotId).v[COL.STATUS - 1]) === STATUS.RESERVE;
+    var done = reserve
+      ? setReserveStudent_(slotId, text, '担任シート')
+      : assignStudentToSlot_(slotId, text);
+    done.reserve = reserve;
     try {
       refreshAfterReset_();
     } catch (e) {
@@ -1272,7 +1286,7 @@ function apiAdminSetStatus(pass, slotId, status) {
         throw new Error('予約が入っています。先に取り消してください。');
       }
       if (String(found.v[COL.STATUS - 1]) === STATUS.RESERVE) {
-        throw new Error('予備の枠はここでは変更できません。「予約表_〇組」シートで記入してください。');
+        throw new Error('予備の枠はここでは変更できません。黄色いセルを押して、生徒を入れるか空にしてください。');
       }
       sheet_(SH.SLOTS).getRange(found.row, COL.STATUS).setValue(status);
       clearSlotCache_();
@@ -1345,52 +1359,7 @@ function apiAdminUnbooked(pass) {
 function apiAdminSetReserve(pass, slotId, input) {
   return safe_(function () {
     requireAdmin_(pass);
-    var text = String(input == null ? '' : input).trim();
-
-    return withLock_(function () {
-      var found = findSlotRow_(slotId);
-      if (String(found.v[COL.STATUS - 1]) !== STATUS.RESERVE) {
-        throw new Error('予備の枠ではありません。');
-      }
-      var cls = String(found.v[COL.CLASS - 1]);
-      var sh = sheet_(SH.SLOTS);
-
-      if (!text) {
-        sh.getRange(found.row, COL.NUMBER, 1, 4).setValues([['', '', '', '']]);
-        clearSlotCache_();
-        markViewsStale_();
-        logAction_('予備コマを空に', slotId, cls,
-          found.v[COL.NUMBER - 1] || '', String(found.v[COL.STUDENT - 1] || ''), '担任Web');
-        return { no: '', name: '' };
-      }
-
-      var roster = getRoster();
-      var asNo = Number(text);
-      var hit = null;
-      for (var i = 0; i < roster.length; i++) {
-        if (roster[i].cls !== cls) continue;
-        if (asNo && roster[i].no === asNo) { hit = roster[i]; break; }
-        if (norm_(roster[i].name) === norm_(text)) { hit = roster[i]; break; }
-      }
-      if (!hit) {
-        throw new Error(cls + ' の名簿に「' + text + '」が見つかりません。' +
-          '出席番号か、名簿どおりの氏名で入力してください。');
-      }
-
-      // すでにどこかで面談が入っている生徒を、重ねて予備に入れない
-      var slots = readSlots_();
-      var already = findExistingBookingFor_(slots, cls, hit.no, linkedIdentity_(cls, hit.no));
-      if (already && String(already.v[COL.SLOT_ID - 1]) !== slotId) {
-        throw new Error(hit.name + ' さんは ' + dateLabel_(already.v[COL.DATE - 1]) + ' ' +
-          already.v[COL.START - 1] + ' に面談が入っています。先にそちらを取り消してください。');
-      }
-
-      sh.getRange(found.row, COL.NUMBER, 1, 2).setValues([[hit.no, hit.name]]);
-      clearSlotCache_();
-      markViewsStale_();
-      logAction_('予備コマに記入', slotId, cls, hit.no, hit.name, '担任Web');
-      return { no: hit.no, name: hit.name };
-    });
+    return setReserveStudent_(slotId, input, '担任Web');
   });
 }
 
@@ -1443,7 +1412,7 @@ function assignStudentToSlot_(slotId, text) {
         found.v[COL.STUDENT - 1] + ' さんの予約が入っています。先に取り消してください。');
     }
     if (st === STATUS.RESERVE) {
-      throw new Error('予備の枠です。黄色い（予備）の行に直接ご記入ください。');
+      throw new Error('予備の枠です。担任用の管理画面の黄色いセルから入れてください。');
     }
 
     var cls = String(found.v[COL.CLASS - 1]);
@@ -1487,6 +1456,69 @@ function assignStudentToSlot_(slotId, text) {
   return result;
 }
 
+/**
+ * 予備の枠に生徒を入れる／外す。
+ * Web管理画面とシートのメニューの両方から使う。
+ *
+ * 通常の枠への代理登録と違い、予約コードは発行しない。
+ * 予備は保護者の画面に一覧されず、コードで引くこともできない枠だからである。
+ *
+ * @param {string} slotId 対象の枠ID
+ * @param {string} input 出席番号か氏名。空文字ならその枠を空にする
+ * @param {string} source 予約ログに残す操作元
+ * @return {{no:(number|string), name:string, cls:string, dateLabel:string, start:string, end:string}}
+ */
+function setReserveStudent_(slotId, input, source) {
+  var text = String(input == null ? '' : input).trim();
+  var from = source || '担任';
+
+  return withLock_(function () {
+    var found = findSlotRow_(slotId);
+    if (String(found.v[COL.STATUS - 1]) !== STATUS.RESERVE) {
+      throw new Error('予備の枠ではありません。');
+    }
+    var cls = String(found.v[COL.CLASS - 1]);
+    var sh = sheet_(SH.SLOTS);
+    var when = {
+      cls: cls,
+      dateLabel: dateLabel_(found.v[COL.DATE - 1]),
+      start: String(found.v[COL.START - 1]),
+      end: String(found.v[COL.END - 1])
+    };
+
+    if (!text) {
+      sh.getRange(found.row, COL.NUMBER, 1, 4).setValues([['', '', '', '']]);
+      clearSlotCache_();
+      markViewsStale_();
+      logAction_('予備コマを空に', slotId, cls,
+        found.v[COL.NUMBER - 1] || '', String(found.v[COL.STUDENT - 1] || ''), from);
+      return {
+        no: '', name: '', cls: cls,
+        dateLabel: when.dateLabel, start: when.start, end: when.end
+      };
+    }
+
+    var hit = resolveStudent_(cls, text);
+
+    // すでにどこかで面談が入っている生徒を、重ねて予備に入れない
+    var slots = readSlots_();
+    var already = findExistingBookingFor_(slots, cls, hit.no, linkedIdentity_(cls, hit.no));
+    if (already && String(already.v[COL.SLOT_ID - 1]) !== slotId) {
+      throw new Error(hit.name + ' さんは ' + dateLabel_(already.v[COL.DATE - 1]) + ' ' +
+        already.v[COL.START - 1] + ' に面談が入っています。先にそちらを取り消してください。');
+    }
+
+    sh.getRange(found.row, COL.NUMBER, 1, 2).setValues([[hit.no, hit.name]]);
+    clearSlotCache_();
+    markViewsStale_();
+    logAction_('予備コマに記入', slotId, cls, hit.no, hit.name, from);
+    return {
+      no: hit.no, name: hit.name, cls: cls,
+      dateLabel: when.dateLabel, start: when.start, end: when.end
+    };
+  });
+}
+
 function apiAdminCancel(pass, slotId) {
   return safe_(function () {
     requireAdmin_(pass);
@@ -1525,11 +1557,12 @@ function findSlotRow_(slotId) {
 /**
  * 「予約表_〇組」の、作り直されてしまう場所に書き込まれたときに知らせる。
  *
- * 残るのは次の2か所だけ。
- *   ・A・B列（名簿）
- *   ・黄色い（予備）の行の 出席番号・生徒氏名・保護者氏名
- * それ以外は次の更新で消えるが、書いた本人には分からない。
+ * このシートで手入力してよいのは **A・B列（名簿）だけ**。
+ * それ以外は黄色い（予備）の行も含めて次の更新で消えるが、書いた本人には分からない。
  * 黙って消すのがいちばん困るので、その場で伝える。
+ *
+ * 「ここはよくて、ここはだめ」を作らないのは、覚えられないからでもあるが、
+ * 正しい操作にまで警告を出すと、やがて中身を読まずに閉じるようになるため。
  */
 function warnGeneratedEdit_(e, sh) {
   var row = e.range.getRow();
@@ -1539,21 +1572,58 @@ function warnGeneratedEdit_(e, sh) {
   var lastCol = col + e.range.getNumColumns() - 1;
   if (lastCol <= 2) return;   // A・B列は名簿。手で入れる場所
 
-  // 右側の表の列番号。I列(9)から CLASS_HEADER_RIGHT の並び
-  var colStatus = 9 + 2;      // 状態
-  var colNumber = 9 + 3;      // 出席番号
-  var colGuardian = 9 + 5;    // 保護者氏名
-
-  // 予備の行の記入欄なら、取り込まれるので何も言わない
-  if (col >= colNumber && lastCol <= colGuardian) {
-    var st = String(sh.getRange(row, colStatus).getValue());
-    if (st === STATUS.RESERVE) return;
-  }
-
   sh.getParent().toast(
-    'この表は「枠マスタ」から自動で作り直されます。いま書いた内容は次の更新で消えます。' +
-    '名簿はA・B列、面談の登録は担任用の管理画面か、黄色い（予備）の行で行ってください。',
+    'この表は「' + SH.SLOTS + '」から自動で作り直されます。いま書いた内容は次の更新で消えます。' +
+    '黄色い（予備）の行も同じです。手で入れてよいのはA・B列の名簿だけです。' +
+    '面談を入れるときは、その行を選んでメニュー「' + MENU.ROWOPS +
+    ' ▸ この枠に生徒を入れる」か、担任用の管理画面から行ってください。',
     '⚠ ここに書いても残りません', 15);
+
+  // どの時間の行かが分かると、あとから担任に確認しやすい
+  var where = '';
+  try {
+    var head = sh.getRange(row, 9, 1, 3).getValues()[0];   // 日付・時間・状態
+    if (head[0]) where = String(head[0]) + ' ' + String(head[1]) + '（' + String(head[2]) + '）　';
+  } catch (e2) { /* 位置が取れなくても知らせる */ }
+
+  logStrayEdit_(sh.getName().slice(CLASS_SHEET_PREFIX.length), e, where +
+    '面談の登録は担任用の管理画面か、その行を選んで' +
+    '「' + MENU.ROWOPS + ' ▸ この枠に生徒を入れる」から行ってください');
+}
+
+/**
+ * 「全体ビュー」に手で書き込まれたときに知らせる。
+ * こちらは丸ごと作り直すので、残る場所が1つも無い。
+ */
+function warnOverviewEdit_(e, sh) {
+  sh.getParent().toast(
+    'この表は「' + SH.SLOTS + '」から自動で作り直されます。いま書いた内容は次の更新で消えます。' +
+    '面談を入れない時間の指定は「' + SH.NG + '」シートか、担任用の管理画面で行ってください。',
+    '⚠ ここに書いても残りません', 15);
+
+  logStrayEdit_('', e,
+    '面談を入れない時間の指定は「' + SH.NG + '」シートか、担任用の管理画面で行ってください');
+}
+
+/**
+ * 登録されないまま消える手入力を、予約ログへ残す。
+ *
+ * トーストは15秒で流れてしまい、見落とすと誰にも伝わらない。
+ * 「入れたつもり」のまま当日を迎えるのがいちばん困るので、必ず記録に残し、
+ * 🩺データ点検と受付開始前の点検から拾えるようにする。
+ */
+function logStrayEdit_(cls, e, advice) {
+  try {
+    var at = '';
+    try { at = e.range.getSheet().getName() + ' の ' + e.range.getA1Notation(); } catch (e2) { at = ''; }
+    logAction_(STRAY_EDIT_ACTION, '', cls || '', '', '',
+      (at ? at + ' ' : '') + 'に書き込まれましたが、この場所は自動で作り直されるため登録されていません' +
+      (e && e.value != null ? '（入力: ' + String(e.value) + '）' : '') +
+      (advice ? ' ／ ' + advice : ''));
+  } catch (err) {
+    // 記録できなくても、トーストは出ている。編集そのものは邪魔しない
+    console.warn('未登録の手入力を記録できませんでした:', err);
+  }
 }
 
 /* ---------------- 受付状態の表示 ---------------- */
@@ -1577,10 +1647,14 @@ function onEdit(e) {
       dropRefCaches_();
     }
 
-    // 予約表は毎回作り直される表示用のシート。
+    // 予約表・全体ビューは毎回作り直される表示用のシート。
     // 書いても残らない場所に手を入れたら、その場で知らせる
     if (sheetName.indexOf(CLASS_SHEET_PREFIX) === 0) {
       warnGeneratedEdit_(e, sh);
+      return;
+    }
+    if (sheetName === SH.OVERVIEW) {
+      warnOverviewEdit_(e, sh);
       return;
     }
 

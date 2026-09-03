@@ -27,6 +27,7 @@ function checkData() {
   checkSlotState_(found);
   checkOrphanSheets_(found);
   checkInputErrors_(found);
+  checkStrayEdits_(found);
   checkAutoRefresh_(found);
   checkLinkSheet_(found);
 
@@ -345,6 +346,74 @@ function recentInputErrors_(days) {
 function inputErrorLabel_(e) {
   return e.cls + ' ' + e.no + '番　' +
     Utilities.formatDate(e.last, TZ, 'M/d HH:mm') + '　' + e.detail;
+}
+
+/**
+ * 予約ログから「登録されないまま消えた手入力」をクラスごとに拾う。
+ *
+ * 手引きを読まずに表へ直接書いてしまった担任を、学校側から見つけるための手がかり。
+ * 書いた本人には何も残らないので、ここでしか気づけない。
+ *
+ * @return {Array<{cls:string, count:number, last:Date, detail:string}>}
+ */
+function recentStrayEdits_(days) {
+  var sh = ss_().getSheetByName(SH.LOG);
+  if (!sh) return [];
+  var last = sh.getLastRow();
+  if (last < 2) return [];
+
+  var since = new Date();
+  since.setDate(since.getDate() - (days || 14));
+
+  var vals = sh.getRange(2, 1, last - 1, 7).getValues();
+  var byKey = {}, order = [];
+
+  for (var i = 0; i < vals.length; i++) {
+    if (String(vals[i][1]) !== STRAY_EDIT_ACTION) continue;
+    var at = vals[i][0];
+    if (!(at instanceof Date) || at < since) continue;
+
+    // クラスが空なら全体ビューへの書き込み
+    var cls = String(vals[i][3] || '').trim() || SH.OVERVIEW;
+    if (!byKey[cls]) {
+      byKey[cls] = { cls: cls, count: 0, last: at, detail: String(vals[i][6] || '') };
+      order.push(cls);
+    }
+    byKey[cls].count++;
+    // ログは古い順に並ぶ。同じ時刻なら後の行を採用する
+    if (at >= byKey[cls].last) {
+      byKey[cls].last = at;
+      byKey[cls].detail = String(vals[i][6] || '');
+    }
+  }
+
+  var out = [];
+  for (var k = 0; k < order.length; k++) out.push(byKey[order[k]]);
+  out.sort(function (a, b) { return b.last - a.last; });
+  return out;
+}
+
+function checkStrayEdits_(found) {
+  var list = [];
+  try { list = recentStrayEdits_(14); } catch (e) { return; }
+  if (!list.length) return;
+
+  var total = 0, lines = [];
+  for (var i = 0; i < list.length; i++) {
+    total += list[i].count;
+    if (i < 5) {
+      lines.push(list[i].cls + ' ' + list[i].count + '件（最後 ' +
+        Utilities.formatDate(list[i].last, TZ, 'M/d HH:mm') + '）');
+    }
+  }
+
+  addFinding_(found, CHECK_LEVEL.WARN,
+    '自動で作り直される場所への手入力がありました（' + total + '件）',
+    lines.join(' ／ ') + (list.length > 5 ? ' ほか' : ''),
+    '手で書いた内容は登録されず、次の表示更新で消えています（過去14日）。' +
+    '担任が「入れたつもり」のままになっていないか、確認して声をかけてください。' +
+    'その時間は保護者の画面では空きのままなので、別の家庭が予約できてしまいます。' +
+    '面談の登録は、担任用の管理画面か「' + MENU.ROWOPS + ' ▸ この枠に生徒を入れる」から行います。');
 }
 
 function checkLinkSheet_(found) {

@@ -71,8 +71,30 @@
  *
  * 4.6.12 の変更
  *   ・案内プリントの利用手順へGoogleカレンダー登録を追加し、重要語句を部分的に太字化
+ *
+ * 4.6.13 の変更
+ *   ・シートのメニュー「この枠に生徒を入れる」で、予備の枠にも生徒を入れられるようにした
+ *   ・修正 予備の枠に入れた生徒が、次の表示更新で消えることがあったのを解消
+ *
+ * 4.6.14 の変更
+ *   ・自動で作り直される場所に、書き込む前の警告（保護：警告のみ）を掛けた
+ *   ・全体ビューへ手で書いたときも、その場で知らせるようにした
+ *   ・登録されないまま消える手入力を予約ログに残し、データ点検で拾えるようにした
+ *   ・予備の枠への手入力にも、名簿の照合と二重予約の確認を通すようにした
+ *
+ * 4.6.15 の変更
+ *   ・予約表への手入力を、予備の行も含めてすべて「書いても残らない」に統一
+ *   ・予備の枠の記入は、担任用の管理画面か「この枠に生徒を入れる」だけに一本化
+ *   ・「この枠に生徒を入れる」に、予備の枠を空にするボタンを足した
+ *
+ * 4.6.16 の変更
+ *   ・修正 予約表の「予約済（予備）」が未予約と同じ色で、埋まったのが分からなかった
+ *
+ * 4.6.17 の変更
+ *   ・全体ビューのクラス名から、そのクラスの予約表へ飛べるようにした
+ *   ・各予約表のG1から、全体ビューへ戻れるようにした
  */
-var VERSION = '4.6.12';
+var VERSION = '4.6.17';
 
 /**
  * ふだんは空にしておく。操作先は必ず ss_() / ssId_() から取る。
@@ -161,6 +183,19 @@ var MENU = {
   AUTO_BACKUP: '準備・メンテナンス ▸ 毎日の自動バックアップを設定する',
   DAY_LIST: '📄 印刷用PDFを作る ▸ 当日の受付一覧（全校・時間順）'
 };
+
+/**
+ * 自動で作り直される場所に掛ける「保護（警告のみ）」の目印。
+ * この文字列で始まる保護だけを、システムが付け外しする。
+ * 担任や管理職が自分で付けた保護には触れない。
+ */
+var EDIT_GUARD_TAG = '⚠三者面談：自動で作り直されます';
+
+/**
+ * 登録されないまま消える手入力を、予約ログへ残すときの「操作」名。
+ * データ点検（Check.js）からも同じ名前で拾う。
+ */
+var STRAY_EDIT_ACTION = '未登録の手入力';
 
 /** フォルダ名定数（PdfExport.js からもここを参照する） */
 var BACKUP_FOLDER_NAME = '📦_バックアップ保存箱';
@@ -288,7 +323,9 @@ var STATUS = {
   BLOCKED: 'ブロック',
   /**
    * 予備。保護者の画面には一覧にも出さない。
-   * 担任が「予約表_〇組」の予備の行に氏名を書き込むと、そこに面談が入る。
+   * 担任用の管理画面の黄色いセルか、「予約表_〇組」で行を選んで
+   * メニュー「選んだ行を操作 ▸ この枠に生徒を入れる」から入れる。
+   * 表へ直接書いても登録されない（作り直しで消える）。
    */
   RESERVE: '予備'
 };
@@ -903,6 +940,89 @@ function ensureSheetSize_(sh, rows, cols) {
   var maxCols = sh.getMaxColumns();
   if (cols > maxCols) sh.insertColumnsAfter(maxCols, cols - maxCols);
   return sh;
+}
+
+/**
+ * 同じファイルの中の、別のシートへ飛ぶリンクの数式。
+ *
+ * クラスが17もあると、下のタブから目的の予約表を探すだけで手間がかかる。
+ * 全体ビューの見出しと、各予約表の先頭に置いて行き来できるようにする。
+ *
+ * 数式の文字列リテラルには改行を書けないので、改行は CHAR(10) でつなぐ。
+ *
+ * @param {number} gid 飛び先のシートID（Sheet#getSheetId）
+ * @param {string} label セルに出す文字。改行を含んでよい
+ * @return {string} setValues / setFormula に渡す数式
+ */
+function sheetLinkFormula_(gid, label) {
+  var parts = String(label == null ? '' : label).split('\n').map(function (t) {
+    return '"' + t.replace(/"/g, '""') + '"';
+  });
+  return '=HYPERLINK("#gid=' + gid + '",' + parts.join('&CHAR(10)&') + ')';
+}
+
+/**
+ * 自動で作り直される場所に、書き込む前の警告を付ける。
+ *
+ * 「予約表_〇組」の予約状況や「全体ビュー」は枠マスタから毎回作り直す表示用の場所で、
+ * 手で書いても次の更新で消える。onEdit のトーストは15秒で流れてしまい、
+ * 手引きを読まずに感覚で操作する担任には届かない。
+ * Googleスプレッドシートの「保護」を**警告のみ**で掛け、書き込む瞬間に確認を出す。
+ *
+ * 警告のみなので、担任は［OK］を押せばそのまま書ける。作業が止まることはない。
+ * 掛ける場所は「作り直される所は全部」で統一する。
+ * 「ここはよくて、ここはだめ」は覚えられないし、正しい操作にまで警告が出ると、
+ * やがて中身を読まずに［OK］を押すようになる。手で入れてよいのは名簿（A・B列）だけ。
+ *
+ * すでに同じ目印の保護があれば作り直さない（5分おきの更新から呼ばれるので、
+ * 毎回付け替えると無駄な書き込みになる）。
+ * 守る場所を変えたときは、いらなくなった目印付きの保護をここで片付ける。
+ *
+ * `range` を省いたときはシート全体を守る。全体ビューのように `clear()` で
+ * 丸ごと作り直すシートは、範囲で持つと作り直しのたびに付け直しになりかねない。
+ *
+ * @param {Sheet} sh 対象シート
+ * @param {Array<{key:string, range:(Range|undefined), note:string}>} specs 守る範囲
+ */
+function ensureEditGuards_(sh, specs) {
+  try {
+    var wholeSheet = false;
+    for (var w = 0; w < specs.length; w++) if (!specs[w].range) wholeSheet = true;
+
+    var list = sh.getProtections(SpreadsheetApp.ProtectionType.RANGE);
+    if (wholeSheet) {
+      list = list.concat(sh.getProtections(SpreadsheetApp.ProtectionType.SHEET));
+    }
+
+    var keep = {};
+
+    for (var s = 0; s < specs.length; s++) {
+      var prefix = EDIT_GUARD_TAG + '／' + specs[s].key;
+      var found = null;
+      for (var i = 0; i < list.length; i++) {
+        if (String(list[i].getDescription() || '').indexOf(prefix) !== 0) continue;
+        // 更新が同時に2つ走ると、同じ保護が二重に作られることがある。見つけたら片付ける
+        if (!found) { found = list[i]; keep[i] = true; continue; }
+        try { list[i].remove(); } catch (e2) { /* 消せなくても実害はない */ }
+      }
+      if (found) continue;
+
+      (specs[s].range || sh).protect()
+        .setDescription(prefix + '：' + specs[s].note)
+        .setWarningOnly(true);
+    }
+
+    // 守る場所を変えた前の版が残っていると、いらない所に警告が出続ける
+    for (var k = 0; k < list.length; k++) {
+      if (keep[k]) continue;
+      if (String(list[k].getDescription() || '').indexOf(EDIT_GUARD_TAG) !== 0) continue;
+      try { list[k].remove(); } catch (e3) { /* 消せなくても実害はない */ }
+    }
+  } catch (e) {
+    // 保護を付けられなくても、表そのものは正しく作れている。
+    // 権限の都合で付けられない環境でも、更新が止まらないようにする
+    console.warn('編集の警告を付けられませんでした: ' + sh.getName(), e);
+  }
 }
 
 /**
