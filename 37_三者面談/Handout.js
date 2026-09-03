@@ -178,7 +178,10 @@ function buildHandoutSheet_(sh, cfg, url) {
   // ── 案内文
   var notice = cfg.notice ||
     '希望する日時を1つ選んでご予約ください。予約後に表示される4桁の予約コードは、変更・取消に必要です。必ず控えてください。';
-  mergeText_(sh, 6, 2, 3, width - 2, notice, { size: 16, wrap: true, height: 32 });
+  mergeText_(sh, 6, 2, 3, width - 2, notice, {
+    size: 16, wrap: true, height: 32,
+    boldParts: ['4桁の予約コード', '必ず控えてください']
+  });
 
   // ── 受付期間
   var period = [];
@@ -216,8 +219,10 @@ function buildHandoutSheet_(sh, cfg, url) {
     '① クラス・出席番号・お子さまの氏名を入力',
     '② 空いている時間から希望の時間を選ぶ',
     '③ 保護者氏名を入力して予約を確定',
-    '④ 表示された4桁の予約コードを控える'
+    '④ 表示された4桁の予約コードを控える',
+    '⑤ 予約完了後、Googleカレンダーへの登録もできます'
   ];
+  var stepBoldParts = [[], [], [], ['4桁の予約コード'], ['Googleカレンダー']];
   side += line * 5 + 1;
   mergeText_(sh, side, textCol, line, width - textCol, 'ご利用の手順',
     { size: 17, bold: true });
@@ -225,7 +230,7 @@ function buildHandoutSheet_(sh, cfg, url) {
   side += line + 1;
   for (var s = 0; s < steps.length; s++) {
     mergeText_(sh, side + s * (line + 1), textCol, line, width - textCol, steps[s],
-      { size: 16, wrap: true });
+      { size: 16, wrap: true, boldParts: stepBoldParts[s] });
   }
 
   // ── ごきょうだいがいる場合
@@ -276,12 +281,20 @@ function buildHandoutSheet_(sh, cfg, url) {
   ];
   // 最初の説明は長いため3行分、それ以外は2行分の高さを確保する。
   var androidHelpRows = [3, 2, 2, 2, 2, 2];
+  var androidHelpBoldParts = [
+    ['「ファイルを開くことができません」'],
+    [],
+    ['「新しいシークレット タブ」'],
+    [],
+    [],
+    ['学校までご連絡ください']
+  ];
   var helpCursor = helpRow + 2;
   for (var ah = 0; ah < androidHelpLines.length; ah++) {
     var helpRows = androidHelpRows[ah] || 2;
     mergeText_(sh, helpCursor, 2, helpRows, width - 2,
       androidHelpLines[ah],
-      { size: 15, wrap: true, height: 18, color: '#3c4043' });
+      { size: 15, wrap: true, height: 18, color: '#3c4043', boldParts: androidHelpBoldParts[ah] });
     helpCursor += helpRows;
   }
 
@@ -295,10 +308,11 @@ function buildHandoutSheet_(sh, cfg, url) {
   var helpBodyEnd = helpCursor;
   var notesRow = helpBodyEnd + 2;
   var noteBlockRows = 3;
+  var noteBoldParts = [[], ['4桁の予約コード'], []];
   for (var nt = 0; nt < notes.length; nt++) {
     mergeText_(sh, notesRow + nt * noteBlockRows, 2, noteBlockRows, width - 2,
       notes[nt],
-      { size: 15, wrap: true, height: 16, color: '#3c4043' });
+      { size: 15, wrap: true, height: 16, color: '#3c4043', boldParts: noteBoldParts[nt] });
   }
 
   // ── すき間の行を詰める
@@ -344,7 +358,45 @@ function mergeText_(sh, row, col, rows, cols, text, opt) {
   if (opt.height) {
     for (var r = 0; r < rows; r++) sh.setRowHeight(row + r, opt.height);
   }
+  if (opt.boldParts && opt.boldParts.length) {
+    applyBoldParts_(range, text, opt.boldParts, opt);
+  }
   return range;
+}
+
+/** 指定した語句だけを太字にする */
+function applyBoldParts_(range, text, parts, opt) {
+  var value = String(text == null ? '' : text);
+  if (!value) return;
+
+  var baseStyle = SpreadsheetApp.newTextStyle()
+    .setFontFamily('Meiryo')
+    .setFontSize(opt.size || 11)
+    .setForegroundColor(opt.color || '#000000')
+    .setBold(!!opt.bold)
+    .build();
+  var boldStyle = SpreadsheetApp.newTextStyle()
+    .setFontFamily('Meiryo')
+    .setFontSize(opt.size || 11)
+    .setForegroundColor(opt.color || '#000000')
+    .setBold(true)
+    .build();
+  var builder = SpreadsheetApp.newRichTextValue()
+    .setText(value)
+    .setTextStyle(0, value.length, baseStyle);
+
+  for (var i = 0; i < parts.length; i++) {
+    var part = String(parts[i] || '');
+    if (!part) continue;
+    var from = 0;
+    while (from < value.length) {
+      var start = value.indexOf(part, from);
+      if (start < 0) break;
+      builder.setTextStyle(start, start + part.length, boldStyle);
+      from = start + part.length;
+    }
+  }
+  range.getCell(1, 1).setRichTextValue(builder.build());
 }
 
 /** QRのマトリクスを、セルの背景色として描く */
